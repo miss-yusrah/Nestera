@@ -37,12 +37,38 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('database.url'),
-        autoLoadEntities: true,
-        synchronize: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const dbUrl = configService.get<string>('database.url');
+        const dbHost = configService.get<string>('database.host');
+
+        if (dbUrl) {
+          // URL-based connection (e.g. DATABASE_URL on cloud platforms)
+          return {
+            type: 'postgres' as const,
+            url: dbUrl,
+            autoLoadEntities: true,
+            synchronize: configService.get<string>('NODE_ENV') !== 'production',
+          };
+        }
+
+        // Host-based connection (uses DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS)
+        if (!dbHost) {
+          throw new Error(
+            'Database configuration error: set either DATABASE_URL or DB_HOST in your environment.',
+          );
+        }
+
+        return {
+          type: 'postgres' as const,
+          host: dbHost,
+          port: configService.get<number>('database.port') ?? 5432,
+          database: configService.get<string>('database.name'),
+          username: configService.get<string>('database.user'),
+          password: configService.get<string>('database.pass'),
+          autoLoadEntities: true,
+          synchronize: configService.get<string>('NODE_ENV') !== 'production',
+        };
+      },
     }),
     AuthModule,
     // RedisCacheModule,

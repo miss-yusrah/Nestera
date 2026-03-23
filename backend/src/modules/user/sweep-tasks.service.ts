@@ -98,7 +98,7 @@ export class SweepTasksService {
   private async calculateExcessFunds(user: User): Promise<number> {
     try {
       // Get user's current wallet balance from Stellar
-      const balance = await this.getWalletBalance(user.publicKey);
+      const balance = await this.getWalletBalance(user.publicKey!);
       
       this.logger.debug(
         `User ${user.id} balance: ${balance} XLM, threshold: ${user.sweepThreshold} XLM`,
