@@ -90,8 +90,19 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
     TestThrottlingModule,
     ThrottlerModule.forRoot([
       {
+        name: 'default',
         ttl: 60000,
         limit: 100,
+      },
+      {
+        name: 'auth',
+        ttl: 15 * 60 * 1000, // 15 minutes
+        limit: 5,
+      },
+      {
+        name: 'rpc',
+        ttl: 60000, // 1 minute
+        limit: 10,
       },
     ]),
   ],
