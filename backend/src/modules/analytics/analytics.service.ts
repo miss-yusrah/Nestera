@@ -10,7 +10,7 @@ import {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  constructor(private readonly stellarService: StellarService) { }
+  constructor(private readonly stellarService: StellarService) {}
 
   /**
    * Aggregates all token balances for a user's Stellar account and returns
