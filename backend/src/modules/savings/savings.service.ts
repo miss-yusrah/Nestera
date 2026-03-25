@@ -283,6 +283,63 @@ export class SavingsService {
     );
   }
 
+  async createGoal(
+    userId: string,
+    goalName: string,
+    targetAmount: number,
+    targetDate: Date,
+    metadata?: any,
+  ): Promise<SavingsGoal> {
+    const goal = this.goalRepository.create({
+      userId,
+      goalName,
+      targetAmount,
+      targetDate,
+      metadata: metadata || null,
+    });
+
+    return await this.goalRepository.save(goal);
+  }
+
+  async updateGoal(
+    goalId: string,
+    userId: string,
+    updates: {
+      goalName?: string;
+      targetAmount?: number;
+      targetDate?: Date;
+      status?: any;
+      metadata?: any;
+    },
+  ): Promise<SavingsGoal> {
+    const goal = await this.goalRepository.findOne({
+      where: { id: goalId, userId },
+    });
+
+    if (!goal) {
+      throw new NotFoundException(
+        `Savings goal ${goalId} not found or does not belong to user`,
+      );
+    }
+
+    Object.assign(goal, updates);
+    return await this.goalRepository.save(goal);
+  }
+
+  async deleteGoal(goalId: string, userId: string): Promise<void> {
+    const goal = await this.goalRepository.findOne({
+      where: { id: goalId, userId },
+    });
+
+    if (!goal) {
+      throw new NotFoundException(
+        `Savings goal ${goalId} not found or does not belong to user`,
+      );
+    }
+
+    await this.goalRepository.remove(goal);
+  }
+
   private mapGoalWithProgress(
     goal: SavingsGoal,
     liveVaultBalanceStroops: number,
