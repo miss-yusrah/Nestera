@@ -1,5 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  Account,
+  Address,
+  BASE_FEE,
+  Contract,
+  Keypair,
+  scValToNative,
+  TransactionBuilder,
+  xdr,
+} from '@stellar/stellar-sdk';
 import { StellarService } from './stellar.service';
 
 export interface SavingsBalance {
@@ -12,10 +21,7 @@ export interface SavingsBalance {
 export class SavingsService {
   private readonly logger = new Logger(SavingsService.name);
 
-  constructor(
-    private readonly stellarService: StellarService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly stellarService: StellarService) {}
 
   /**
    * Fetch total assets from a Soroban vault contract
@@ -88,6 +94,58 @@ export class SavingsService {
     }
   }
 
+  async invokeContractRead<T = unknown>(
+    contractId: string,
+    method: string,
+    args: xdr.ScVal[] = [],
+    sourcePublicKey?: string,
+  ): Promise<T> {
+    const rpcServer = this.stellarService.getRpcServer();
+    const sourceAccount = sourcePublicKey
+      ? await rpcServer.getAccount(sourcePublicKey)
+      : new Account(Keypair.random().publicKey(), '0');
+    const contract = new Contract(contractId);
+
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: this.stellarService.getNetworkPassphrase(),
+    })
+      .addOperation(contract.call(method, ...args))
+      .setTimeout(30)
+      .build();
+
+    const simulation = await rpcServer.simulateTransaction(transaction);
+
+    if ('error' in simulation) {
+      throw new Error(simulation.error);
+    }
+
+    return simulation.result
+      ? (scValToNative(simulation.result.retval) as T)
+      : (undefined as T);
+  }
+
+  async getUserVaultBalance(
+    contractId: string,
+    userPublicKey: string,
+  ): Promise<number> {
+    try {
+      const nativeValue = await this.invokeContractRead(
+        contractId,
+        'balanceOf',
+        [new Address(userPublicKey).toScVal()],
+        userPublicKey,
+      );
+
+      return this.normalizeContractBalance(nativeValue);
+    } catch (error) {
+      this.logger.warn(
+        `Could not fetch vault balance from ${contractId} for ${userPublicKey}: ${(error as Error).message}`,
+      );
+      return 0;
+    }
+  }
+
   /**
    * Fetch wallet balance from Stellar
    * @param publicKey The user's Stellar public key
@@ -126,5 +184,22 @@ export class SavingsService {
       );
       return 0;
     }
+  }
+
+  private normalizeContractBalance(value: unknown): number {
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    return 0;
   }
 }

@@ -14,7 +14,7 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
 import { UserModule } from './modules/user/user.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { MailModule } from './modules/mail/mail.module';
-// import { RedisCacheModule } from './modules/cache/cache.module';
+import { RedisCacheModule } from './modules/cache/cache.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { ClaimsModule } from './modules/claims/claims.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
@@ -73,7 +73,7 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
       },
     }),
     AuthModule,
-    // RedisCacheModule,
+    RedisCacheModule,
     HealthModule,
     BlockchainModule,
     UserModule,

@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SavingsService } from './savings.service';
 import { SavingsProduct } from './entities/savings-product.entity';
@@ -9,11 +11,31 @@ import { SavingsService as BlockchainSavingsService } from '../blockchain/saving
 
 describe('SavingsService', () => {
   let service: SavingsService;
+  let productRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOneBy: jest.Mock;
+  };
+  let subscriptionRepository: { find: jest.Mock };
   let goalRepository: { find: jest.Mock };
   let userRepository: { findOne: jest.Mock };
-  let blockchainSavingsService: { getUserSavingsBalance: jest.Mock };
+  let blockchainSavingsService: {
+    getUserSavingsBalance: jest.Mock;
+    getUserVaultBalance: jest.Mock;
+  };
+  let cacheManager: { del: jest.Mock };
 
   beforeEach(async () => {
+    productRepository = {
+      create: jest.fn((value) => value),
+      save: jest.fn(),
+      findOneBy: jest.fn(),
+    };
+
+    subscriptionRepository = {
+      find: jest.fn(),
+    };
+
     goalRepository = {
       find: jest.fn(),
     };
@@ -24,6 +46,11 @@ describe('SavingsService', () => {
 
     blockchainSavingsService = {
       getUserSavingsBalance: jest.fn(),
+      getUserVaultBalance: jest.fn(),
+    };
+
+    cacheManager = {
+      del: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -31,11 +58,11 @@ describe('SavingsService', () => {
         SavingsService,
         {
           provide: getRepositoryToken(SavingsProduct),
-          useValue: {},
+          useValue: productRepository,
         },
         {
           provide: getRepositoryToken(UserSubscription),
-          useValue: {},
+          useValue: subscriptionRepository,
         },
         {
           provide: getRepositoryToken(SavingsGoal),
@@ -48,6 +75,20 @@ describe('SavingsService', () => {
         {
           provide: BlockchainSavingsService,
           useValue: blockchainSavingsService,
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) =>
+              key === 'stellar.contractId'
+                ? 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M'
+                : undefined,
+            ),
+          },
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: cacheManager,
         },
       ],
     }).compile();
@@ -150,5 +191,87 @@ describe('SavingsService', () => {
         percentageComplete: 100,
       }),
     ]);
+  });
+
+  it('returns subscriptions enriched with live RPC balances', async () => {
+    subscriptionRepository.find.mockResolvedValue([
+      {
+        id: 'sub-1',
+        userId: 'user-1',
+        productId: 'product-1',
+        amount: 12.5,
+        createdAt: new Date('2026-01-01'),
+      },
+    ]);
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-1',
+      publicKey: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+    });
+    blockchainSavingsService.getUserVaultBalance.mockResolvedValue(25_000_000);
+
+    await expect(service.findMySubscriptions('user-1')).resolves.toEqual([
+      expect.objectContaining({
+        id: 'sub-1',
+        indexedAmount: 12.5,
+        liveBalance: 2.5,
+        liveBalanceStroops: 25_000_000,
+        balanceSource: 'rpc',
+        vaultContractId:
+          'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M',
+      }),
+    ]);
+    expect(blockchainSavingsService.getUserVaultBalance).toHaveBeenCalledWith(
+      'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M',
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+    );
+  });
+
+  it('falls back to cached subscription amounts when wallet is missing', async () => {
+    subscriptionRepository.find.mockResolvedValue([
+      {
+        id: 'sub-1',
+        userId: 'user-1',
+        productId: 'product-1',
+        amount: 8.75,
+        createdAt: new Date('2026-01-01'),
+      },
+    ]);
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-1',
+      publicKey: null,
+    });
+
+    await expect(service.findMySubscriptions('user-1')).resolves.toEqual([
+      expect.objectContaining({
+        indexedAmount: 8.75,
+        liveBalance: 8.75,
+        balanceSource: 'cache',
+        vaultContractId: null,
+      }),
+    ]);
+    expect(blockchainSavingsService.getUserVaultBalance).not.toHaveBeenCalled();
+  });
+
+  it('invalidates the pools cache after saving a product', async () => {
+    productRepository.save.mockResolvedValue({
+      id: 'product-1',
+      name: 'Flexible Plan',
+    });
+
+    await expect(
+      service.createProduct({
+        name: 'Flexible Plan',
+        type: 'FLEXIBLE' as SavingsProduct['type'],
+        interestRate: 5,
+        minAmount: 10,
+        maxAmount: 100,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'product-1',
+      }),
+    );
+
+    expect(cacheManager.del).toHaveBeenCalledWith('pools_all');
   });
 });
