@@ -1,4 +1,7 @@
+'use client';
+
 import React from "react";
+import Link from "next/link";
 import {
   LayoutGrid,
   CheckCircle2,
@@ -7,7 +10,7 @@ import {
   ArrowUp,
 } from "lucide-react";
 
-export const metadata = { title: "Goal-Based Savings - Nestera" };
+// export const metadata = { title: "Goal-Based Savings - Nestera" };
 
 export default function GoalBasedSavingsPage() {
   return (
@@ -29,9 +32,12 @@ export default function GoalBasedSavingsPage() {
               <button className="px-5 py-2.5 rounded-xl border border-cyan-400/40 text-cyan-200 hover:text-white hover:border-cyan-300 transition-colors">
                 View Templates
               </button>
-              <button className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-[#061a1a] font-semibold rounded-xl transition-all shadow-lg active:scale-95">
+              <Link
+                href="/savings/create-goal"
+                className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-[#061a1a] font-semibold rounded-xl transition-all shadow-lg active:scale-95 inline-block"
+              >
                 Create New Goal
-              </button>
+              </Link>
             </div>
           </div>
         </div>
