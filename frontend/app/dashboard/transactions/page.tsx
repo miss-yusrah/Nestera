@@ -102,6 +102,18 @@ export default function TransactionHistoryPage() {
       status: "pending",
       hash: "0x0b22...8e91",
     },
+    {
+      date: "2026-03-25",
+      time: "12:00",
+      transactionId: "0x5f99...d2be",
+      title: "Swap USDC → DAI",
+      type: "swap",
+      assetDetails: "550 USDC to 549 DAI",
+      amount: -550.0,
+      currency: "USDC",
+      status: "completed",
+      hash: "0x5f99...d2be",
+    },
   ];
 
   function onExportCsv() {
