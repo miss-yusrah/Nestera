@@ -1,8 +1,8 @@
-import React from "react";
 import { ShieldCheck, Users, Vote, FileText } from "lucide-react";
 import PassedProposalCard, {
   type PassedProposal,
 } from "@/app/components/dashboard/PassedProposalCard";
+import ProposalCard from "@/app/components/dashboard/ProposalCard";
 
 export const metadata = { title: "Governance – Nestera" };
 
@@ -117,6 +117,42 @@ export default function GovernancePage() {
           >
             View all
           </a>
+        </div>
+
+        {/* Active proposals list (uses ProposalCard) */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3 mt-4">
+            <h4 className="m-0 text-base font-semibold">Active Proposals</h4>
+            <a
+              href="#"
+              className="text-[#60f0ec] no-underline font-semibold hover:text-[#9ef0f0] transition-colors"
+            >
+              View all
+            </a>
+          </div>
+
+          <div className="space-y-4">
+            {/* Example active proposals - replace with API data mapping in real app */}
+            <ProposalCard
+              id="NIP-4"
+              title="Increase USDC Base Yield to 14%"
+              categories={["Finance"]}
+              countdownText="Ends in 2 days"
+              forPercent={75}
+              againstPercent={25}
+              status="ACTIVE"
+            />
+
+            <ProposalCard
+              id="NIP-12"
+              title="Add new ecosystem grants program"
+              categories={["Ecosystem", "Finance"]}
+              countdownText="Ends in 6 days"
+              forPercent={52}
+              againstPercent={48}
+              status="ACTIVE"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
