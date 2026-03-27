@@ -106,10 +106,12 @@ pub enum ProposalAction {
 
 /// Calculates voting power for a user based on their current staked tokens
 pub fn get_voting_power(env: &Env, user: &Address) -> u128 {
-    let user_data = crate::users::get_user(env, user).unwrap_or(crate::storage_types::User {
-        total_balance: 0,
-        savings_count: 0,
-    });
+    let user_data = crate::users::get_user(env, user).unwrap_or(
+        crate::storage_types::User {
+            total_balance: 0,
+            savings_count: 0,
+        },
+    );
     user_data.total_balance.max(0) as u128
 }
 
