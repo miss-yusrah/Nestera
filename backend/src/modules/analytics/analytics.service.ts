@@ -36,6 +36,7 @@ export class AnalyticsService {
   /**
    * Reconstructs the historical net worth timeline by working backward
    * from the current live balance using transaction events.
+   * Returns values normalized to USD using oracle price conversion.
    */
   async getPortfolioTimeline(userId: string, timeframe: PortfolioTimeframe) {
     const user = await this.userRepository.findOne({
@@ -52,7 +53,10 @@ export class AnalyticsService {
       await this.blockchainSavingsService.getUserSavingsBalance(user.publicKey);
     const currentTotal = currentSavings.total;
 
-    // 2. Define intervals based on timeframe
+    // 2. Get current XLM price for USD conversion
+    const xlmPrice = await this.oracleService.getXLMPrice();
+    
+    // 3. Define intervals based on timeframe
     const now = new Date();
     let startDate: Date;
     let intervalMs: number;
@@ -85,7 +89,7 @@ export class AnalyticsService {
         points = 7;
     }
 
-    // 3. Fetch all events for the user in this timeframe
+    // 4. Fetch all events for the user in this timeframe
     const events = await this.eventRepository.find({
       where: {
         processedAt: Between(startDate, now),
@@ -99,8 +103,8 @@ export class AnalyticsService {
       return xdr.includes(user.publicKey!);
     });
 
-    // 4. Group events by period and calculate net change per period
-    const timeline: { date: string; value: number }[] = [];
+    // 5. Group events by period and calculate net change per period
+    const timeline: { date: string; value: number; valueUsd?: number }[] = [];
     let runningBalance = currentTotal;
 
     for (let i = 0; i < points; i++) {
@@ -124,9 +128,13 @@ export class AnalyticsService {
         }
       }
 
+      // Convert native value to USD
+      const valueUsd = runningBalance * xlmPrice;
+      
       timeline.push({
         date: this.formatDate(periodEnd, timeframe),
-        value: runningBalance,
+        value: runningBalance, // Native XLM value
+        valueUsd: parseFloat(valueUsd.toFixed(2)), // Normalized USD value
       });
 
       runningBalance -= netChange;
