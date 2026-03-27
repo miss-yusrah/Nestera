@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SavingsProductType } from '../entities/savings-product.entity';
+import { SavingsProductType, RiskLevel } from '../entities/savings-product.entity';
 
 export class SavingsProductDto {
   @ApiProperty({ description: 'Product UUID' })
@@ -34,8 +34,9 @@ export class SavingsProductDto {
 
   @ApiProperty({
     description: 'Risk level classification (e.g. Low, Medium, High)',
+    enum: RiskLevel,
   })
-  riskLevel: string;
+  riskLevel: RiskLevel;
 
   @ApiProperty({ description: 'Total Value Locked (aggregated local balance)' })
   tvlAmount: number;

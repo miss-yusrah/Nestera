@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cache } from 'cache-manager';
 import { Repository } from 'typeorm';
-import { SavingsProduct } from './entities/savings-product.entity';
+import { SavingsProduct, RiskLevel } from './entities/savings-product.entity';
 import {
   UserSubscription,
   SubscriptionStatus,
@@ -122,7 +122,7 @@ export class SavingsService {
         tenureMonths: product.tenureMonths,
         contractId: product.contractId,
         isActive: product.isActive,
-        riskLevel: (product as any).riskLevel || 'Low',
+        riskLevel: product.riskLevel || RiskLevel.LOW,
         tvlAmount,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,

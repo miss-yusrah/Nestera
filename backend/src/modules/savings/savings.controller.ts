@@ -24,7 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { SavingsService } from './savings.service';
-import { SavingsProduct } from './entities/savings-product.entity';
+import { SavingsProduct, RiskLevel } from './entities/savings-product.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { SavingsGoal } from './entities/savings-goal.entity';
 import { SubscribeDto } from './dto/subscribe.dto';
@@ -109,7 +109,7 @@ export class SavingsController {
       contractId: product.contractId,
       totalAssets,
       totalAssetsXlm,
-      riskLevel: (product as any).riskLevel || 'Low',
+      riskLevel: product.riskLevel || RiskLevel.LOW,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };

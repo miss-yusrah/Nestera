@@ -7,6 +7,7 @@ import { SavingsService } from './savings.service';
 import {
   SavingsProduct,
   SavingsProductType,
+  RiskLevel,
 } from './entities/savings-product.entity';
 import {
   UserSubscription,
@@ -33,7 +34,7 @@ describe('SavingsController (Enhanced)', () => {
         { amount: 100, status: SubscriptionStatus.ACTIVE },
         { amount: 50, status: SubscriptionStatus.ACTIVE },
       ],
-      riskLevel: 'Low',
+      riskLevel: RiskLevel.LOW,
     },
     {
       id: 'p2',
@@ -41,7 +42,7 @@ describe('SavingsController (Enhanced)', () => {
       interestRate: 15,
       createdAt: new Date('2026-01-02'),
       subscriptions: [{ amount: 30, status: SubscriptionStatus.ACTIVE }],
-      riskLevel: 'Medium',
+      riskLevel: RiskLevel.MEDIUM,
     },
   ];
 
@@ -93,6 +94,6 @@ describe('SavingsController (Enhanced)', () => {
   it('should include riskLevel in the response', async () => {
     const result = await controller.getProducts();
     expect(result[0].riskLevel).toBeDefined();
-    expect(['Low', 'Medium', 'High']).toContain(result[0].riskLevel);
+    expect(Object.values(RiskLevel)).toContain(result[0].riskLevel);
   });
 });
