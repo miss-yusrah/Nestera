@@ -17,7 +17,8 @@ import { SavingsGoal } from './entities/savings-goal.entity';
 import { User } from '../user/entities/user.entity';
 import { SavingsService as BlockchainSavingsService } from '../blockchain/savings.service';
 import { PredictiveEvaluatorService } from './services/predictive-evaluator.service';
-import { RecommendationService } from './services/recommendation.service';
+import { WithdrawalRequest } from './entities/withdrawal-request.entity';
+import { Transaction } from '../transactions/entities/transaction.entity';
 import { RpcThrottleGuard } from '../../common/guards/rpc-throttle.guard';
 import { Reflector } from '@nestjs/core';
 
@@ -62,6 +63,8 @@ describe('SavingsController (Enhanced)', () => {
         { provide: getRepositoryToken(UserSubscription), useValue: {} },
         { provide: getRepositoryToken(SavingsGoal), useValue: {} },
         { provide: getRepositoryToken(User), useValue: {} },
+        { provide: getRepositoryToken(WithdrawalRequest), useValue: {} },
+        { provide: getRepositoryToken(Transaction), useValue: {} },
         { provide: BlockchainSavingsService, useValue: {} },
         { provide: PredictiveEvaluatorService, useValue: {} },
         { provide: RecommendationService, useValue: { getRecommendations: jest.fn() } },

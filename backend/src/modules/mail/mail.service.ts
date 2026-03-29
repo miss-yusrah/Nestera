@@ -47,6 +47,34 @@ export class MailService {
     }
   }
 
+  async sendWithdrawalCompletedEmail(
+    userEmail: string,
+    name: string,
+    amount: string,
+    penalty: string,
+    netAmount: string,
+  ): Promise<void> {
+    try {
+      await this.mailerService.sendMail({
+        to: userEmail,
+        subject: 'Withdrawal Request Completed',
+        template: './withdrawal-completed',
+        context: {
+          name: name || 'User',
+          amount,
+          penalty,
+          netAmount,
+        },
+      });
+      this.logger.log(`Withdrawal completed email sent to ${userEmail}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send withdrawal completed email to ${userEmail}`,
+        error,
+      );
+    }
+  }
+
   async sendClaimStatusEmail(
     userEmail: string,
     name: string,
