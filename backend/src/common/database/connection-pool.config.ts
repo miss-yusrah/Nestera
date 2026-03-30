@@ -75,7 +75,9 @@ export class ConnectionPoolService {
   }
 
   getLatestMetrics(): PoolMetrics | null {
-    return this.metrics.length > 0 ? this.metrics[this.metrics.length - 1] : null;
+    return this.metrics.length > 0
+      ? this.metrics[this.metrics.length - 1]
+      : null;
   }
 
   getAverageUtilization(minutes: number = 5): number {
@@ -84,7 +86,10 @@ export class ConnectionPoolService {
 
     if (recentMetrics.length === 0) return 0;
 
-    const sum = recentMetrics.reduce((acc, m) => acc + m.utilizationPercentage, 0);
+    const sum = recentMetrics.reduce(
+      (acc, m) => acc + m.utilizationPercentage,
+      0,
+    );
     return sum / recentMetrics.length;
   }
 
@@ -103,10 +108,7 @@ export class ConnectionPoolService {
     if (!pool) return 0;
 
     const activeConnections = pool._activeConnections?.length || 0;
-    const maxPoolSize = this.configService.get<number>(
-      'DATABASE_POOL_MAX',
-      20,
-    );
+    const maxPoolSize = this.configService.get<number>('DATABASE_POOL_MAX', 20);
 
     if (activeConnections > maxPoolSize * 0.9) {
       this.logger.warn(

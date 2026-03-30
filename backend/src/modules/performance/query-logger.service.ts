@@ -22,7 +22,7 @@ export class QueryLoggerService {
 
   private setupQueryLogging() {
     const queryRunner = this.dataSource.createQueryRunner();
-    
+
     this.dataSource.subscribers?.forEach((subscriber) => {
       if (subscriber.beforeQuery) {
         const originalBeforeQuery = subscriber.beforeQuery.bind(subscriber);
@@ -36,7 +36,7 @@ export class QueryLoggerService {
         const originalAfterQuery = subscriber.afterQuery.bind(subscriber);
         subscriber.afterQuery = (event) => {
           const duration = Date.now() - (event.startTime || Date.now());
-          
+
           if (duration > this.slowQueryThreshold) {
             this.recordSlowQuery({
               query: event.query,
@@ -54,7 +54,7 @@ export class QueryLoggerService {
 
   private recordSlowQuery(metrics: QueryMetrics) {
     this.slowQueries.push(metrics);
-    
+
     if (this.slowQueries.length > this.maxStoredQueries) {
       this.slowQueries.shift();
     }
@@ -110,7 +110,9 @@ export class QueryLoggerService {
 
     queryMap.forEach((count, query) => {
       if (count > 5) {
-        patterns.push(`Query executed ${count} times: ${query.substring(0, 100)}`);
+        patterns.push(
+          `Query executed ${count} times: ${query.substring(0, 100)}`,
+        );
       }
     });
 

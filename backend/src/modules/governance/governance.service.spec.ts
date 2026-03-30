@@ -14,6 +14,11 @@ import {
   ProposalType,
 } from './entities/governance-proposal.entity';
 import { Vote, VoteDirection } from './entities/vote.entity';
+import { TransactionsService } from '../transactions/transactions.service';
+import { GovernanceProposal } from './entities/governance-proposal.entity';
+import { Vote } from './entities/vote.entity';
+import { LedgerTransaction } from '../blockchain/entities/transaction.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('GovernanceService', () => {
   let service: GovernanceService;
@@ -36,6 +41,11 @@ describe('GovernanceService', () => {
     createQueryBuilder: jest.Mock;
     findAndCount: jest.Mock;
   };
+  let transactionsService: any;
+  let eventEmitter: { emit: jest.Mock };
+  let proposalRepo: { findOneBy: jest.Mock };
+  let voteRepo: { find: jest.Mock; create: jest.Mock; save: jest.Mock; findAndCount: jest.Mock };
+  let transactionRepo: { createQueryBuilder: jest.Mock };
 
   beforeEach(async () => {
     userService = { findById: jest.fn() };
@@ -59,6 +69,11 @@ describe('GovernanceService', () => {
       createQueryBuilder: jest.fn(),
       findAndCount: jest.fn(),
     };
+    transactionsService = {};
+    eventEmitter = { emit: jest.fn() };
+    proposalRepo = { findOneBy: jest.fn() };
+    voteRepo = { find: jest.fn(), create: jest.fn(), save: jest.fn(), findAndCount: jest.fn() };
+    transactionRepo = { createQueryBuilder: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -66,12 +81,14 @@ describe('GovernanceService', () => {
         { provide: UserService, useValue: userService },
         { provide: StellarService, useValue: stellarService },
         { provide: SavingsService, useValue: savingsService },
+        { provide: TransactionsService, useValue: transactionsService },
         { provide: EventEmitter2, useValue: eventEmitter },
         {
           provide: getRepositoryToken(GovernanceProposal),
           useValue: proposalRepo,
         },
         { provide: getRepositoryToken(Vote), useValue: voteRepo },
+        { provide: getRepositoryToken(LedgerTransaction), useValue: transactionRepo },
       ],
     }).compile();
 
@@ -139,10 +156,19 @@ describe('GovernanceService', () => {
         id: 'user-1',
         publicKey: 'GUSERPUBLICKEY123',
       });
-      savingsService.getUserVaultBalance.mockResolvedValue(50_000_000_000);
 
       await expect(service.getUserVotingPower('user-1')).resolves.toEqual({
         votingPower: '5,000 NST',
+      const queryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '150000000' }),
+      };
+      transactionRepo.createQueryBuilder.mockReturnValue(queryBuilder);
+
+      await expect(service.getUserVotingPower('user-1')).resolves.toEqual({
+        votingPower: '15 NST',
       });
     });
 
@@ -389,6 +415,42 @@ describe('GovernanceService', () => {
       expect(result.tally.againstVotes).toBe(1);
       expect(result.tally.totalWeight).toBe('50');
       expect(result.recentVoters).toHaveLength(2);
+  describe('castVote', () => {
+    it('throws BadRequestException if user has no publicKey', async () => {
+      userService.findById.mockResolvedValue({ id: 'user-1', publicKey: null });
+
+      await expect(service.castVote('user-1', 1, 'FOR' as any)).rejects.toThrow(
+        'User must have a public key to vote',
+      );
+    });
+
+    it('throws NotFoundException if proposal not found', async () => {
+      userService.findById.mockResolvedValue({ id: 'user-1', publicKey: 'PK1' });
+      proposalRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(service.castVote('user-1', 1, 'FOR' as any)).rejects.toThrow(
+        'Proposal 1 not found',
+      );
+    });
+
+    it('throws BadRequestException if already voted', async () => {
+      userService.findById.mockResolvedValue({ id: 'user-1', publicKey: 'PK1' });
+      proposalRepo.findOneBy.mockResolvedValue({ id: 'p1', onChainId: 1, status: 'Active' });
+      voteRepo.findOneBy.mockResolvedValue({ id: 'v1' });
+
+      await expect(service.castVote('user-1', 1, 'FOR' as any)).rejects.toThrow(
+        'User has already voted on this proposal',
+      );
+    });
+  });
+
+  describe('delegateVotingPower', () => {
+    it('returns a mock transaction hash', async () => {
+      userService.findById.mockResolvedValue({ id: 'user-1', publicKey: 'PK1' });
+
+      const result = await service.delegateVotingPower('user-1', 'DELEGATE_PK');
+      expect(result.transactionHash).toBeDefined();
+      expect(result.transactionHash).toMatch(/^0x/);
     });
   });
 });

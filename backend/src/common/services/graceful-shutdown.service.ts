@@ -49,9 +49,7 @@ export class GracefulShutdownService implements OnApplicationShutdown {
     await this.closeRedis();
 
     const shutdownDuration = Date.now() - shutdownStartTime;
-    this.logger.log(
-      `Graceful shutdown completed in ${shutdownDuration}ms`,
-    );
+    this.logger.log(`Graceful shutdown completed in ${shutdownDuration}ms`);
   }
 
   private async waitForInFlightRequests(): Promise<void> {

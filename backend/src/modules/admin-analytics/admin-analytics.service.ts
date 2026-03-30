@@ -14,8 +14,15 @@ import { ProtocolMetrics } from './entities/protocol-metrics.entity';
 import { OracleService } from './services/oracle.service';
 import { SavingsService } from '../blockchain/savings.service';
 import { User } from '../user/entities/user.entity';
-import { UserSubscription, SubscriptionStatus } from '../savings/entities/user-subscription.entity';
-import { Transaction, TxType, TxStatus } from '../transactions/entities/transaction.entity';
+import {
+  UserSubscription,
+  SubscriptionStatus,
+} from '../savings/entities/user-subscription.entity';
+import {
+  Transaction,
+  TxType,
+  TxStatus,
+} from '../transactions/entities/transaction.entity';
 import { DateRangeFilterDto } from '../admin/dto/admin-analytics.dto';
 
 @Injectable()
@@ -186,7 +193,10 @@ export class AdminAnalyticsService {
   /**
    * Calculate date range from filter
    */
-  private calculateDateRange(filter: DateRangeFilterDto): { fromDate: Date; toDate: Date } {
+  private calculateDateRange(filter: DateRangeFilterDto): {
+    fromDate: Date;
+    toDate: Date;
+  } {
     const toDate = filter.toDate ? new Date(filter.toDate) : new Date();
     let fromDate: Date;
 
@@ -244,14 +254,20 @@ export class AdminAnalyticsService {
       this.getTotalValueLocked(),
       this.getMonthlyRevenue(),
       this.transactionRepository.count(),
-      this.subscriptionRepository.count({ where: { status: SubscriptionStatus.ACTIVE } }),
+      this.subscriptionRepository.count({
+        where: { status: SubscriptionStatus.ACTIVE },
+      }),
       this.claimRepository.count({ where: { status: ClaimStatus.PENDING } }),
       this.disputeRepository.count({
-        where: [{ status: DisputeStatus.OPEN }, { status: DisputeStatus.IN_PROGRESS }],
+        where: [
+          { status: DisputeStatus.OPEN },
+          { status: DisputeStatus.IN_PROGRESS },
+        ],
       }),
     ]);
 
-    const avgSavingsPerUser = totalUsers > 0 ? totalValueLocked / totalUsers : 0;
+    const avgSavingsPerUser =
+      totalUsers > 0 ? totalValueLocked / totalUsers : 0;
 
     return {
       totalUsers,
@@ -273,7 +289,9 @@ export class AdminAnalyticsService {
     const result = await this.subscriptionRepository
       .createQueryBuilder('subscription')
       .select('SUM(subscription.amount)', 'total')
-      .where('subscription.status = :status', { status: SubscriptionStatus.ACTIVE })
+      .where('subscription.status = :status', {
+        status: SubscriptionStatus.ACTIVE,
+      })
       .getRawOne();
 
     return parseFloat(result?.total || '0');
@@ -317,7 +335,14 @@ export class AdminAnalyticsService {
   }> {
     const { fromDate, toDate } = this.calculateDateRange(filter);
 
-    const [totalUsers, newUsers, activeUsers, lastPeriodUsers, usersByTier, usersByKycStatus] = await Promise.all([
+    const [
+      totalUsers,
+      newUsers,
+      activeUsers,
+      lastPeriodUsers,
+      usersByTier,
+      usersByKycStatus,
+    ] = await Promise.all([
       this.userRepository.count(),
       this.userRepository.count({
         where: {
@@ -350,11 +375,12 @@ export class AdminAnalyticsService {
 
     // Calculate churn (users who haven't logged in during the period)
     const churnedUsers = totalUsers - activeUsers;
-    
+
     // Calculate rates
     const retentionRate = totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
     const churnRate = totalUsers > 0 ? (churnedUsers / totalUsers) * 100 : 0;
-    const growthRate = lastPeriodUsers > 0 ? ((newUsers - 0) / lastPeriodUsers) * 100 : 0;
+    const growthRate =
+      lastPeriodUsers > 0 ? ((newUsers - 0) / lastPeriodUsers) * 100 : 0;
 
     // Format tier distribution
     const tierDistribution: Record<string, number> = {};
@@ -388,7 +414,10 @@ export class AdminAnalyticsService {
   /**
    * Get user growth trend over time
    */
-  private async getUserGrowthTrend(fromDate: Date, toDate: Date): Promise<{ date: string; count: number }[]> {
+  private async getUserGrowthTrend(
+    fromDate: Date,
+    toDate: Date,
+  ): Promise<{ date: string; count: number }[]> {
     const users = await this.userRepository
       .createQueryBuilder('user')
       .select('DATE(user.createdAt)', 'date')
@@ -427,8 +456,10 @@ export class AdminAnalyticsService {
       .orderBy('date', 'ASC')
       .getRawMany();
 
-    const totalRevenue = revenueData.reduce((sum, r) => sum + parseFloat(r.total || '0'), 0) * 0.01;
-    
+    const totalRevenue =
+      revenueData.reduce((sum, r) => sum + parseFloat(r.total || '0'), 0) *
+      0.01;
+
     // Get current month revenue
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -464,10 +495,12 @@ export class AdminAnalyticsService {
     }));
 
     // Simple projection (next 3 months based on average)
-    const avgMonthly = revenueTrend.length > 0 
-      ? revenueTrend.reduce((sum, r) => sum + r.amount, 0) / revenueTrend.length 
-      : 0;
-    
+    const avgMonthly =
+      revenueTrend.length > 0
+        ? revenueTrend.reduce((sum, r) => sum + r.amount, 0) /
+          revenueTrend.length
+        : 0;
+
     const revenueProjection = [];
     const currentMonth = new Date();
     for (let i = 1; i <= 3; i++) {
@@ -515,12 +548,15 @@ export class AdminAnalyticsService {
     // Get subscription counts
     const [totalSubscriptions, activeSubscriptions] = await Promise.all([
       this.subscriptionRepository.count(),
-      this.subscriptionRepository.count({ where: { status: SubscriptionStatus.ACTIVE } }),
+      this.subscriptionRepository.count({
+        where: { status: SubscriptionStatus.ACTIVE },
+      }),
     ]);
 
     // Get average savings per user
     const totalUsers = await this.userRepository.count();
-    const avgSavingsPerUser = totalUsers > 0 ? totalValueLocked / totalUsers : 0;
+    const avgSavingsPerUser =
+      totalUsers > 0 ? totalValueLocked / totalUsers : 0;
 
     // Get product performance
     const productPerformanceData = await this.subscriptionRepository
@@ -531,7 +567,9 @@ export class AdminAnalyticsService {
       .addSelect('SUM(CAST(subscription.amount AS DECIMAL))', 'tvl')
       .addSelect('product.apy', 'apy')
       .addSelect('COUNT(*)', 'subscriptionCount')
-      .where('subscription.status = :status', { status: SubscriptionStatus.ACTIVE })
+      .where('subscription.status = :status', {
+        status: SubscriptionStatus.ACTIVE,
+      })
       .groupBy('subscription.productId, product.name, product.apy')
       .getRawMany();
 
@@ -544,11 +582,22 @@ export class AdminAnalyticsService {
     }));
 
     // APY distribution
-    const products = await this.savingsProductRepository.find({ where: { isActive: true } });
+    const products = await this.savingsProductRepository.find({
+      where: { isActive: true },
+    });
     const apyDistribution = [
-      { range: '0-2%', count: products.filter((p) => p.apy >= 0 && p.apy < 2).length },
-      { range: '2-5%', count: products.filter((p) => p.apy >= 2 && p.apy < 5).length },
-      { range: '5-10%', count: products.filter((p) => p.apy >= 5 && p.apy < 10).length },
+      {
+        range: '0-2%',
+        count: products.filter((p) => p.apy >= 0 && p.apy < 2).length,
+      },
+      {
+        range: '2-5%',
+        count: products.filter((p) => p.apy >= 2 && p.apy < 5).length,
+      },
+      {
+        range: '5-10%',
+        count: products.filter((p) => p.apy >= 5 && p.apy < 10).length,
+      },
       { range: '10%+', count: products.filter((p) => p.apy >= 10).length },
     ];
 
@@ -606,7 +655,8 @@ export class AdminAnalyticsService {
     ]);
 
     const totalVolume = parseFloat(volumeResult?.total || '0');
-    const avgTransactionSize = totalTransactions > 0 ? totalVolume / totalTransactions : 0;
+    const avgTransactionSize =
+      totalTransactions > 0 ? totalVolume / totalTransactions : 0;
 
     // Transactions by type
     const byTypeData = await this.transactionRepository

@@ -54,8 +54,13 @@ export class BlockchainController {
   }
 
   @Get('balance-sync/metrics')
-  @ApiOperation({ summary: 'Get WebSocket connection health metrics for balance sync' })
-  @ApiResponse({ status: 200, description: 'Connection metrics summary for all subscribed accounts' })
+  @ApiOperation({
+    summary: 'Get WebSocket connection health metrics for balance sync',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Connection metrics summary for all subscribed accounts',
+  })
   getBalanceSyncMetrics() {
     return this.balanceSyncService.getMetricsSummary();
   }

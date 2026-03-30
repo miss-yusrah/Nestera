@@ -6,10 +6,13 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { StellarService } from '../blockchain/stellar.service';
 import { SavingsService } from '../blockchain/savings.service';
+import { TransactionsService } from '../transactions/transactions.service';
 import { UserService } from '../user/user.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { EditProposalDto } from './dto/edit-proposal.dto';
@@ -26,6 +29,8 @@ import {
 } from './entities/governance-proposal.entity';
 import { Vote, VoteDirection } from './entities/vote.entity';
 import { VotingPowerResponseDto } from './dto/voting-power-response.dto';
+import { TxStatus, TxType } from '../transactions/entities/transaction.entity';
+import { LedgerTransaction } from '../blockchain/entities/transaction.entity';
 
 @Injectable()
 export class GovernanceService {
@@ -33,11 +38,14 @@ export class GovernanceService {
     private readonly userService: UserService,
     private readonly stellarService: StellarService,
     private readonly savingsService: SavingsService,
+    private readonly transactionsService: TransactionsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectRepository(GovernanceProposal)
     private readonly proposalRepo: Repository<GovernanceProposal>,
     @InjectRepository(Vote)
     private readonly voteRepo: Repository<Vote>,
+    @InjectRepository(LedgerTransaction)
+    private readonly transactionRepo: Repository<LedgerTransaction>,
   ) {}
 
   async createProposal(
@@ -203,6 +211,7 @@ export class GovernanceService {
       proposalId: string;
       forCount: string;
       againstCount: string;
+      abstainCount: string;
     }[] = await this.voteRepo
       .createQueryBuilder('vote')
       .select('vote.proposalId', 'proposalId')
@@ -214,6 +223,10 @@ export class GovernanceService {
         `SUM(CASE WHEN vote.direction = '${VoteDirection.AGAINST}' THEN 1 ELSE 0 END)`,
         'againstCount',
       )
+      .addSelect(
+        `SUM(CASE WHEN vote.direction = '${VoteDirection.ABSTAIN}' THEN 1 ELSE 0 END)`,
+        'abstainCount',
+      )
       .where('vote.proposalId IN (:...ids)', { ids: proposalIds })
       .groupBy('vote.proposalId')
       .getRawMany();
@@ -224,13 +237,18 @@ export class GovernanceService {
       const tally = tallyMap.get(proposal.id);
       const forCount = tally ? Number(tally.forCount) : 0;
       const againstCount = tally ? Number(tally.againstCount) : 0;
-      const totalCount = forCount + againstCount;
+      const abstainCount = tally ? Number(tally.abstainCount) : 0;
+      const totalCount = forCount + againstCount + abstainCount;
 
       const forPercent =
         totalCount > 0 ? Math.round((forCount / totalCount) * 10000) / 100 : 0;
       const againstPercent =
         totalCount > 0
           ? Math.round((againstCount / totalCount) * 10000) / 100
+          : 0;
+      const abstainPercent =
+        totalCount > 0
+          ? Math.round((abstainCount / totalCount) * 10000) / 100
           : 0;
 
       return {
@@ -243,6 +261,7 @@ export class GovernanceService {
         proposer: proposal.proposer ?? null,
         forPercent,
         againstPercent,
+        abstainPercent,
         timeline: {
           startTime: proposal.startBlock ?? null,
           endTime: proposal.endBlock ?? null,
@@ -272,6 +291,108 @@ export class GovernanceService {
       maximumFractionDigits: 0,
     });
     return { votingPower: `${formattedVotingPower} NST` };
+
+    // Calculate voting power based on lifetime deposits
+    // Requirement: "Calculate voting power based on lifetime deposits"
+    const result = await this.transactionRepo
+      .createQueryBuilder('tx')
+      .select('SUM(CAST(tx.amount AS decimal))', 'total')
+      .where('tx.userId = :userId', { userId })
+      .andWhere('tx.type = :type', { type: TxType.DEPOSIT })
+      .andWhere('tx.status = :status', { status: TxStatus.COMPLETED })
+      .getRawOne();
+
+    const totalDeposits = parseFloat(result?.total || '0');
+    
+    // 1 NST per 10,000,000 stroops (assuming stroops based on current implementation)
+    // Or if amount is already in human-readable, we just use it.
+    // Looking at current implementation: (balance / 10_000_000)
+    const votingPower = Math.floor(totalDeposits / 10_000_000).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    
+    return { votingPower: `${votingPower} NST` };
+  }
+
+  async castVote(
+    userId: string,
+    onChainId: number,
+    direction: VoteDirection,
+  ): Promise<{ transactionHash: string }> {
+    const user = await this.userService.findById(userId);
+    if (!user.publicKey) {
+      throw new BadRequestException('User must have a public key to vote');
+    }
+
+    const proposal = await this.proposalRepo.findOneBy({ onChainId });
+    if (!proposal) {
+      throw new NotFoundException(`Proposal ${onChainId} not found`);
+    }
+
+    if (proposal.status !== ProposalStatus.ACTIVE) {
+      throw new BadRequestException('Proposal is not active for voting');
+    }
+
+    // Check for double voting
+    const existingVote = await this.voteRepo.findOneBy({
+      walletAddress: user.publicKey,
+      proposalId: proposal.id,
+    });
+
+    if (existingVote) {
+      throw new BadRequestException('User has already voted on this proposal');
+    }
+
+    const votingPowerResult = await this.getUserVotingPower(userId);
+    const weight = parseFloat(votingPowerResult.votingPower.split(' ')[0]);
+
+    if (weight <= 0) {
+      throw new BadRequestException('User has no voting power');
+    }
+
+    // In a real scenario, this would involve a Stellar transaction.
+    // For now, we simulate the transaction hash and save the vote to DB.
+    const mockTxHash = `0x${Math.random().toString(16).slice(2, 10)}${Date.now().toString(16)}`;
+
+    const vote = this.voteRepo.create({
+      walletAddress: user.publicKey,
+      direction,
+      weight,
+      proposal,
+      proposalId: proposal.id,
+    });
+
+    await this.voteRepo.save(vote);
+
+    // Emit event for real-time updates
+    this.eventEmitter.emit('governance.vote_cast', {
+      proposalId: proposal.id,
+      onChainId: proposal.onChainId,
+      direction,
+      weight,
+      walletAddress: user.publicKey,
+    });
+
+    return { transactionHash: mockTxHash };
+  }
+
+  async delegateVotingPower(
+    userId: string,
+    delegateAddress: string,
+  ): Promise<{ transactionHash: string }> {
+    const user = await this.userService.findById(userId);
+    if (!user.publicKey) {
+      throw new BadRequestException('User must have a public key to delegate');
+    }
+
+    // Simulate Stellar delegation
+    const mockTxHash = `0x${Math.random().toString(16).slice(2, 10)}${Date.now().toString(16)}`;
+
+    // In a real app, we'd update the contract on-chain via StellarService
+    // and potentially store it in our DB if needed.
+    
+    return { transactionHash: mockTxHash };
   }
 
   async getProposalVotesByOnChainId(
@@ -292,12 +413,15 @@ export class GovernanceService {
 
     let forWeight = 0;
     let againstWeight = 0;
+    let abstainWeight = 0;
     for (const vote of votes) {
       const voteWeight = Number(vote.weight) || 0;
       if (vote.direction === VoteDirection.FOR) {
         forWeight += voteWeight;
-      } else {
+      } else if (vote.direction === VoteDirection.AGAINST) {
         againstWeight += voteWeight;
+      } else {
+        abstainWeight += voteWeight;
       }
     }
 
@@ -309,9 +433,13 @@ export class GovernanceService {
         againstVotes: votes.filter(
           (vote) => vote.direction === VoteDirection.AGAINST,
         ).length,
+        abstainVotes: votes.filter(
+          (vote) => vote.direction === VoteDirection.ABSTAIN,
+        ).length,
         forWeight: String(forWeight),
         againstWeight: String(againstWeight),
-        totalWeight: String(forWeight + againstWeight),
+        abstainWeight: String(abstainWeight),
+        totalWeight: String(forWeight + againstWeight + abstainWeight),
       },
       recentVoters: votes.map((vote) => ({
         walletAddress: vote.walletAddress,

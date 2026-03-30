@@ -67,7 +67,10 @@ describe('SavingsController (Enhanced)', () => {
         { provide: getRepositoryToken(Transaction), useValue: {} },
         { provide: BlockchainSavingsService, useValue: {} },
         { provide: PredictiveEvaluatorService, useValue: {} },
-        { provide: RecommendationService, useValue: { getRecommendations: jest.fn() } },
+        {
+          provide: RecommendationService,
+          useValue: { getRecommendations: jest.fn() },
+        },
         { provide: ConfigService, useValue: { get: jest.fn() } },
         { provide: CACHE_MANAGER, useValue: { del: jest.fn() } },
         { provide: 'THROTTLER:MODULE_OPTIONS', useValue: {} },

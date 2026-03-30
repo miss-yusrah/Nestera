@@ -79,7 +79,7 @@ import { Notification } from '../notifications/entities/notification.entity';
     AdminAuditLogsService,
     AdminNotificationsService,
     AdminTransactionsService,
-    AdminWithdrawalService
+    AdminWithdrawalService,
   ],
   exports: [AdminDisputesService, AdminAuditLogsService],
 })

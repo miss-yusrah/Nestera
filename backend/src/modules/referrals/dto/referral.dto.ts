@@ -1,9 +1,20 @@
-import { IsString, IsOptional, IsUUID, IsEnum, IsNumber, Min, Matches, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsNumber,
+  Min,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ReferralStatus } from '../entities/referral.entity';
 
 export class CreateReferralDto {
-  @ApiPropertyOptional({ description: 'Campaign ID to associate with this referral' })
+  @ApiPropertyOptional({
+    description: 'Campaign ID to associate with this referral',
+  })
   @IsOptional()
   @IsUUID()
   campaignId?: string;

@@ -231,9 +231,7 @@ describe('Referrals Integration Tests', () => {
     });
 
     it('should require authentication for referral endpoints', async () => {
-      await request(app.getHttpServer())
-        .get('/referrals/stats')
-        .expect(401);
+      await request(app.getHttpServer()).get('/referrals/stats').expect(401);
 
       await request(app.getHttpServer())
         .post('/referrals/generate')

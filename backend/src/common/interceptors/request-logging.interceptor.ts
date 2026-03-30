@@ -17,7 +17,8 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
 
-    const correlationId = request.headers['x-correlation-id'] as string || uuidv4();
+    const correlationId =
+      (request.headers['x-correlation-id'] as string) || uuidv4();
     const startTime = Date.now();
 
     // Attach correlation ID to request and response

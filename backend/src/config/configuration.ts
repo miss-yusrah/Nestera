@@ -93,10 +93,25 @@ export default () => ({
     ),
   },
   balanceSync: {
-    cacheTtlSeconds: parseInt(process.env.BALANCE_CACHE_TTL_SECONDS || '300', 10),
-    pollIntervalMs: parseInt(process.env.BALANCE_POLL_INTERVAL_MS || '5000', 10),
-    reconnectInitialDelayMs: parseInt(process.env.BALANCE_RECONNECT_INIT_MS || '1000', 10),
-    reconnectMaxDelayMs: parseInt(process.env.BALANCE_RECONNECT_MAX_MS || '60000', 10),
-    metricsPersistIntervalMs: parseInt(process.env.BALANCE_METRICS_PERSIST_MS || '60000', 10),
+    cacheTtlSeconds: parseInt(
+      process.env.BALANCE_CACHE_TTL_SECONDS || '300',
+      10,
+    ),
+    pollIntervalMs: parseInt(
+      process.env.BALANCE_POLL_INTERVAL_MS || '5000',
+      10,
+    ),
+    reconnectInitialDelayMs: parseInt(
+      process.env.BALANCE_RECONNECT_INIT_MS || '1000',
+      10,
+    ),
+    reconnectMaxDelayMs: parseInt(
+      process.env.BALANCE_RECONNECT_MAX_MS || '60000',
+      10,
+    ),
+    metricsPersistIntervalMs: parseInt(
+      process.env.BALANCE_METRICS_PERSIST_MS || '60000',
+      10,
+    ),
   },
 });

@@ -7,7 +7,8 @@ export class CorrelationIdMiddleware implements NestMiddleware {
   private readonly logger = new Logger(CorrelationIdMiddleware.name);
 
   use(req: Request, res: Response, next: NextFunction) {
-    const correlationId = (req.headers['x-correlation-id'] as string) || uuidv4();
+    const correlationId =
+      (req.headers['x-correlation-id'] as string) || uuidv4();
 
     // Attach to request
     (req as any).correlationId = correlationId;

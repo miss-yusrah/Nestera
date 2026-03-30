@@ -1,7 +1,9 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 
-export function getTypeOrmConfig(configService: ConfigService): TypeOrmModuleOptions {
+export function getTypeOrmConfig(
+  configService: ConfigService,
+): TypeOrmModuleOptions {
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isProduction = nodeEnv === 'production';
 
@@ -18,7 +20,10 @@ export function getTypeOrmConfig(configService: ConfigService): TypeOrmModuleOpt
     logging: !isProduction,
     // Connection pooling configuration
     extra: {
-      max: configService.get<number>('DATABASE_POOL_MAX', isProduction ? 30 : 10),
+      max: configService.get<number>(
+        'DATABASE_POOL_MAX',
+        isProduction ? 30 : 10,
+      ),
       min: configService.get<number>('DATABASE_POOL_MIN', isProduction ? 5 : 2),
       idleTimeoutMillis: configService.get<number>(
         'DATABASE_IDLE_TIMEOUT',
