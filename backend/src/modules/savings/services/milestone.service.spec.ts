@@ -7,7 +7,10 @@ import {
   SavingsGoalMilestone,
   MilestoneType,
 } from '../entities/savings-goal-milestone.entity';
-import { SavingsGoal, SavingsGoalStatus } from '../entities/savings-goal.entity';
+import {
+  SavingsGoal,
+  SavingsGoalStatus,
+} from '../entities/savings-goal.entity';
 
 const mockGoal: SavingsGoal = {
   id: 'goal-1',
@@ -17,6 +20,7 @@ const mockGoal: SavingsGoal = {
   targetDate: new Date('2027-01-01'),
   status: SavingsGoalStatus.IN_PROGRESS,
   metadata: null,
+  milestonesSent: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   user: null as any,
@@ -38,7 +42,9 @@ describe('MilestoneService', () => {
       find: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn((v) => v),
-      save: jest.fn((v) => (Array.isArray(v) ? Promise.resolve(v) : Promise.resolve(v))),
+      save: jest.fn((v) =>
+        Array.isArray(v) ? Promise.resolve(v) : Promise.resolve(v),
+      ),
     };
 
     goalRepo = { findOne: jest.fn() };
@@ -47,7 +53,10 @@ describe('MilestoneService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MilestoneService,
-        { provide: getRepositoryToken(SavingsGoalMilestone), useValue: milestoneRepo },
+        {
+          provide: getRepositoryToken(SavingsGoalMilestone),
+          useValue: milestoneRepo,
+        },
         { provide: getRepositoryToken(SavingsGoal), useValue: goalRepo },
         { provide: EventEmitter2, useValue: eventEmitter },
       ],
@@ -91,14 +100,36 @@ describe('MilestoneService', () => {
   describe('detectAndAchieveMilestones', () => {
     it('marks milestones as achieved when percentage is reached', async () => {
       const unachieved = [
-        { id: 'm-1', percentage: 25, achieved: false, bonusPoints: 50, label: '25% reached' },
-        { id: 'm-2', percentage: 50, achieved: false, bonusPoints: 100, label: '50% reached' },
-        { id: 'm-3', percentage: 75, achieved: false, bonusPoints: 150, label: '75% reached' },
+        {
+          id: 'm-1',
+          percentage: 25,
+          achieved: false,
+          bonusPoints: 50,
+          label: '25% reached',
+        },
+        {
+          id: 'm-2',
+          percentage: 50,
+          achieved: false,
+          bonusPoints: 100,
+          label: '50% reached',
+        },
+        {
+          id: 'm-3',
+          percentage: 75,
+          achieved: false,
+          bonusPoints: 150,
+          label: '75% reached',
+        },
       ];
       milestoneRepo.find.mockResolvedValue(unachieved);
       milestoneRepo.save.mockImplementation((items) => Promise.resolve(items));
 
-      const result = await service.detectAndAchieveMilestones('goal-1', 'user-1', 60);
+      const result = await service.detectAndAchieveMilestones(
+        'goal-1',
+        'user-1',
+        60,
+      );
 
       expect(result).toHaveLength(2); // 25% and 50% achieved
       expect(eventEmitter.emit).toHaveBeenCalledTimes(2);
@@ -113,7 +144,11 @@ describe('MilestoneService', () => {
         { id: 'm-1', percentage: 50, achieved: false },
       ]);
 
-      const result = await service.detectAndAchieveMilestones('goal-1', 'user-1', 30);
+      const result = await service.detectAndAchieveMilestones(
+        'goal-1',
+        'user-1',
+        30,
+      );
 
       expect(result).toHaveLength(0);
       expect(eventEmitter.emit).not.toHaveBeenCalled();
@@ -160,14 +195,22 @@ describe('MilestoneService', () => {
       };
       milestoneRepo.save.mockResolvedValue(created);
 
-      const result = await service.addCustomMilestone('goal-1', 'user-1', 33, 'One third!');
+      const result = await service.addCustomMilestone(
+        'goal-1',
+        'user-1',
+        33,
+        'One third!',
+      );
 
       expect(result).toEqual(created);
     });
 
     it('throws BadRequestException when percentage already exists', async () => {
       goalRepo.findOne.mockResolvedValue(mockGoal);
-      milestoneRepo.findOne.mockResolvedValue({ id: 'existing', percentage: 33 });
+      milestoneRepo.findOne.mockResolvedValue({
+        id: 'existing',
+        percentage: 33,
+      });
 
       await expect(
         service.addCustomMilestone('goal-1', 'user-1', 33, 'Duplicate'),

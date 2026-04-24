@@ -138,6 +138,15 @@ export class SavingsGoal {
   @Column({ type: 'jsonb', nullable: true })
   metadata: SavingsGoalMetadata | null;
 
+  /**
+   * Tracks which milestone notifications have been sent for this goal.
+   * Stored as a JSONB object with milestone percentage keys (e.g. "25", "50")
+   * and ISO timestamp values when the notification was sent. This avoids
+   * creating an additional table and keeps per-goal state colocated.
+   */
+  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
+  milestonesSent: Record<string, string> | null;
+
   // ── Audit timestamps ────────────────────────────────────────────────────────
 
   @CreateDateColumn()

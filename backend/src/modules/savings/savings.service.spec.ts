@@ -8,8 +8,13 @@ import { MilestoneService } from './services/milestone.service';
 import { SavingsProduct } from './entities/savings-product.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { SavingsGoal, SavingsGoalStatus } from './entities/savings-goal.entity';
-import { User } from '../user/entities/user.entity';
 import { SavingsService as BlockchainSavingsService } from '../blockchain/savings.service';
+import { User } from '../user/entities/user.entity';
+import { SavingsProductVersionAudit } from './entities/savings-product-version-audit.entity';
+import { ProductApySnapshot } from './entities/product-apy-snapshot.entity';
+import { WaitlistService } from './waitlist.service';
+import { WithdrawalRequest } from './entities/withdrawal-request.entity';
+import { Transaction } from '../transactions/entities/transaction.entity';
 
 describe('SavingsService', () => {
   let service: SavingsService;
@@ -77,6 +82,22 @@ describe('SavingsService', () => {
           useValue: userRepository,
         },
         {
+          provide: getRepositoryToken(ProductApySnapshot),
+          useValue: { create: jest.fn(), save: jest.fn(), findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(SavingsProductVersionAudit),
+          useValue: { create: jest.fn(), save: jest.fn(), findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(WithdrawalRequest),
+          useValue: { create: jest.fn(), save: jest.fn(), findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(Transaction),
+          useValue: { create: jest.fn((v) => v), save: jest.fn() },
+        },
+        {
           provide: BlockchainSavingsService,
           useValue: blockchainSavingsService,
         },
@@ -93,8 +114,20 @@ describe('SavingsService', () => {
         {
           provide: MilestoneService,
           useValue: {
-            initializeAutomaticMilestones: jest.fn().mockResolvedValue(undefined),
+            initializeAutomaticMilestones: jest
+              .fn()
+              .mockResolvedValue(undefined),
             detectAndAchieveMilestones: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: WaitlistService,
+          useValue: {
+            addToWaitlist: jest.fn(),
+            removeFromWaitlist: jest.fn(),
+            getWaitlistPosition: jest.fn(),
+            joinWaitlist: jest.fn().mockResolvedValue({ position: 1 }),
+            recordConversion: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -236,6 +269,7 @@ describe('SavingsService', () => {
         userId: 'user-1',
         productId: 'product-1',
         amount: 12.5,
+        product: { interestRate: 10 },
         createdAt: new Date('2026-01-01'),
       },
     ]);
@@ -254,6 +288,8 @@ describe('SavingsService', () => {
         balanceSource: 'rpc',
         vaultContractId:
           'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M',
+        // 2.5 * 0.10 / (365 * 24 * 3600) ≈ 0.0000000079
+        estimatedYieldPerSecond: expect.any(Number),
       }),
     ]);
     expect(blockchainSavingsService.getUserVaultBalance).toHaveBeenCalledWith(
@@ -269,6 +305,7 @@ describe('SavingsService', () => {
         userId: 'user-1',
         productId: 'product-1',
         amount: 8.75,
+        product: { interestRate: 5 },
         createdAt: new Date('2026-01-01'),
       },
     ]);
@@ -283,6 +320,7 @@ describe('SavingsService', () => {
         liveBalance: 8.75,
         balanceSource: 'cache',
         vaultContractId: null,
+        estimatedYieldPerSecond: expect.any(Number),
       }),
     ]);
     expect(blockchainSavingsService.getUserVaultBalance).not.toHaveBeenCalled();

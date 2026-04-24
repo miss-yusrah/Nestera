@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   Param,
+  Query,
 } from '@nestjs/common';
 import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import {
@@ -19,24 +20,38 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { SavingsService } from './savings.service';
 import { MilestoneService } from './services/milestone.service';
-import { SavingsProduct } from './entities/savings-product.entity';
+import { SavingsProduct, RiskLevel } from './entities/savings-product.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { SavingsGoal } from './entities/savings-goal.entity';
 import { SavingsGoalMilestone } from './entities/savings-goal-milestone.entity';
 import { SubscribeDto } from './dto/subscribe.dto';
+import { WithdrawDto } from './dto/withdraw.dto';
+import { WithdrawalResponseDto } from './dto/withdrawal-response.dto';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
+import { SavingsProductDto } from './dto/savings-product.dto';
 import { ProductDetailsDto } from './dto/product-details.dto';
 import { CompareProductsDto } from './dto/compare-products.dto';
 import { ProductComparisonResponseDto } from './dto/product-comparison.dto';
-import { CreateCustomMilestoneDto, MilestoneResponseDto } from './dto/milestone.dto';
+import {
+  CreateCustomMilestoneDto,
+  MilestoneResponseDto,
+} from './dto/milestone.dto';
+import {
+  MetricsGranularity,
+  ProductMetricsDto,
+  ProductMetricsQueryDto,
+} from './dto/product-metrics.dto';
+import { RecommendationResponseDto } from './dto/recommendation-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RpcThrottleGuard } from '../../common/guards/rpc-throttle.guard';
+import { RecommendationService } from './services/recommendation.service';
 import {
   SavingsGoalProgress,
   UserSubscriptionWithLiveBalance,
@@ -48,6 +63,7 @@ export class SavingsController {
   constructor(
     private readonly savingsService: SavingsService,
     private readonly milestoneService: MilestoneService,
+    private readonly recommendationService: RecommendationService,
   ) {}
 
   @Get('products')
@@ -55,9 +71,16 @@ export class SavingsController {
   @CacheKey('pools_all')
   @CacheTTL(60000)
   @ApiOperation({ summary: 'List all savings products' })
-  @ApiResponse({ status: 200, description: 'List of savings products' })
-  async getProducts(): Promise<SavingsProduct[]> {
-    return await this.savingsService.findAllProducts(true);
+  @ApiQuery({ name: 'sort', required: false, enum: ['apy', 'tvl'] })
+  @ApiResponse({
+    status: 200,
+    description: 'List of savings products',
+    type: [SavingsProductDto],
+  })
+  async getProducts(
+    @Query('sort') sort?: 'apy' | 'tvl',
+  ): Promise<SavingsProductDto[]> {
+    return await this.savingsService.findAllProducts(true, sort);
   }
 
   @Get('products/:id')
@@ -89,7 +112,7 @@ export class SavingsController {
     description: 'Soroban RPC request timeout',
   })
   async getProductDetails(@Param('id') id: string): Promise<ProductDetailsDto> {
-    const { product, totalAssets } =
+    const { product, totalAssets, capacity } =
       await this.savingsService.findProductWithLiveData(id);
 
     const totalAssetsXlm = totalAssets / 10_000_000;
@@ -103,10 +126,18 @@ export class SavingsController {
       minAmount: product.minAmount,
       maxAmount: product.maxAmount,
       tenureMonths: product.tenureMonths,
+      maxSubscriptionsPerUser: product.maxSubscriptionsPerUser,
+      version: product.version ?? 1,
       isActive: product.isActive,
       contractId: product.contractId,
       totalAssets,
       totalAssetsXlm,
+      maxCapacity: capacity.maxCapacity,
+      utilizedCapacity: capacity.utilizedCapacity,
+      availableCapacity: capacity.availableCapacity,
+      utilizationPercentage: capacity.utilizationPercentage,
+      isFull: capacity.isFull,
+      riskLevel: product.riskLevel || RiskLevel.LOW,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
@@ -133,6 +164,39 @@ export class SavingsController {
     return this.savingsService.compareProducts(dto.productIds);
   }
 
+  @Get('products/:id/metrics')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(3600000)
+  @ApiOperation({
+    summary: 'Get performance metrics for a savings product',
+    description:
+      'Returns historical APY, TVL trends, user retention, risk-adjusted returns (Sharpe ratio), and similar product comparisons. Cached for 1 hour.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Product UUID',
+  })
+  @ApiQuery({
+    name: 'granularity',
+    required: false,
+    enum: MetricsGranularity,
+    description: 'Chart data granularity (daily, weekly, monthly)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Product performance metrics',
+    type: ProductMetricsDto,
+  })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async getProductMetrics(
+    @Param('id') id: string,
+    @Query() query: ProductMetricsQueryDto,
+  ): Promise<ProductMetricsDto> {
+    return this.savingsService.getProductMetrics(id, query.granularity);
+  }
+
   @Post('subscribe')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
@@ -155,6 +219,49 @@ export class SavingsController {
       dto.productId,
       dto.amount,
     );
+  }
+
+  @Post('withdraw')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Request withdrawal from a savings subscription',
+    description:
+      'Creates a withdrawal request with penalty calculation for early withdrawal from locked products',
+  })
+  @ApiBody({ type: WithdrawDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Withdrawal request created',
+    type: WithdrawalResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or insufficient balance',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Subscription not found' })
+  async withdraw(
+    @Body() dto: WithdrawDto,
+    @CurrentUser() user: { id: string; email: string },
+  ): Promise<WithdrawalResponseDto> {
+    const withdrawal = await this.savingsService.createWithdrawalRequest(
+      user.id,
+      dto.subscriptionId,
+      dto.amount,
+      dto.reason,
+    );
+
+    return {
+      withdrawalId: withdrawal.id,
+      amount: Number(withdrawal.amount),
+      penalty: Number(withdrawal.penalty),
+      netAmount: Number(withdrawal.netAmount),
+      status: withdrawal.status.toLowerCase(),
+      estimatedCompletionTime:
+        withdrawal.estimatedCompletionTime?.toISOString() || '',
+    };
   }
 
   @Get('my-subscriptions')
@@ -280,7 +387,12 @@ export class SavingsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get milestone history for a savings goal' })
-  @ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Goal UUID' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Goal UUID',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of milestones ordered by percentage',
@@ -300,14 +412,22 @@ export class SavingsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a custom milestone to a savings goal' })
-  @ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Goal UUID' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Goal UUID',
+  })
   @ApiBody({ type: CreateCustomMilestoneDto })
   @ApiResponse({
     status: 201,
     description: 'Custom milestone created',
     type: MilestoneResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Milestone at this percentage already exists' })
+  @ApiResponse({
+    status: 400,
+    description: 'Milestone at this percentage already exists',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Goal not found' })
   async addCustomMilestone(
