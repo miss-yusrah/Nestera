@@ -75,17 +75,17 @@ describe('GroupSavingsService', () => {
 
   describe('createGroup', () => {
     it('should create a group pool and add creator as owner', async () => {
-      const dto = { 
-        name: 'Test Pool', 
+      const dto = {
+        name: 'Test Pool',
         targetAmount: 1000,
         productId: 'prod-1',
         multisigAddress: 'G...XYZ',
         requiredSignatures: 2,
-        totalSigners: 3
+        totalSigners: 3,
       };
       const userId = 'user-1';
 
-      const result = await service.createGroup(userId, dto as any);
+      const result = await service.createGroup(userId, dto);
 
       expect(dataSource.transaction).toHaveBeenCalled();
       expect(result.name).toBe('Test Pool');
@@ -186,7 +186,10 @@ describe('GroupSavingsService', () => {
         currentBalance: 950,
         targetAmount: 1000,
       });
-      memberRepository.findOneBy.mockResolvedValue({ poolId: 'group-1', totalContributed: 200 });
+      memberRepository.findOneBy.mockResolvedValue({
+        poolId: 'group-1',
+        totalContributed: 200,
+      });
 
       const result = await service.contribute('user-1', 'group-1', {
         amount: 50,

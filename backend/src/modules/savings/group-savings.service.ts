@@ -74,10 +74,7 @@ export class GroupSavingsService {
     });
   }
 
-  async joinGroup(
-    userId: string,
-    groupId: string,
-  ): Promise<GroupPoolMember> {
+  async joinGroup(userId: string, groupId: string): Promise<GroupPoolMember> {
     const group = await this.groupRepository.findOneBy({ id: groupId });
     if (!group) throw new NotFoundException('Savings group pool not found');
     if (group.status !== PoolStatus.ACTIVE) {
@@ -128,8 +125,14 @@ export class GroupSavingsService {
       poolId: groupId,
       userId: adminId,
     });
-    if (!adminMember || (adminMember.role !== MemberRole.ADMIN && adminMember.role !== MemberRole.OWNER)) {
-      throw new ForbiddenException('Only group admins or owners can invite members');
+    if (
+      !adminMember ||
+      (adminMember.role !== MemberRole.ADMIN &&
+        adminMember.role !== MemberRole.OWNER)
+    ) {
+      throw new ForbiddenException(
+        'Only group admins or owners can invite members',
+      );
     }
 
     const targetUserId = dto.userId;
@@ -185,10 +188,15 @@ export class GroupSavingsService {
     const group = await this.groupRepository.findOneBy({ id: groupId });
     if (!group) throw new NotFoundException('Savings group pool not found');
     if (group.status !== PoolStatus.ACTIVE) {
-      throw new BadRequestException('Group pool is not accepting contributions');
+      throw new BadRequestException(
+        'Group pool is not accepting contributions',
+      );
     }
 
-    const member = await this.memberRepository.findOneBy({ poolId: groupId, userId });
+    const member = await this.memberRepository.findOneBy({
+      poolId: groupId,
+      userId,
+    });
     if (!member) {
       throw new ForbiddenException('Only pool members can contribute');
     }
@@ -205,7 +213,10 @@ export class GroupSavingsService {
       group.currentBalance = Number(group.currentBalance) + amount;
 
       // Check if target reached
-      if (group.targetAmount && Number(group.currentBalance) >= Number(group.targetAmount)) {
+      if (
+        group.targetAmount &&
+        Number(group.currentBalance) >= Number(group.targetAmount)
+      ) {
         // Pool logic might differ, but for now we keep it active or mark closed
       }
 
@@ -242,7 +253,10 @@ export class GroupSavingsService {
     const group = await this.groupRepository.findOneBy({ id: groupId });
     if (!group) throw new NotFoundException('Savings group pool not found');
 
-    const member = await this.memberRepository.findOneBy({ poolId: groupId, userId });
+    const member = await this.memberRepository.findOneBy({
+      poolId: groupId,
+      userId,
+    });
     if (!member) throw new NotFoundException('Pool membership not found');
 
     return await this.dataSource.transaction(async (manager) => {
@@ -251,7 +265,7 @@ export class GroupSavingsService {
       // Update pool amount
       group.totalDeposits = Number(group.totalDeposits) - refundAmount;
       group.currentBalance = Number(group.currentBalance) - refundAmount;
-      
+
       await manager.save(group);
 
       // Record refund activity

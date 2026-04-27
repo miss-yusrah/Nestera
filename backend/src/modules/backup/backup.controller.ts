@@ -12,6 +12,19 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+
+// Define File type for multer uploads
+interface File {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination?: string;
+  filename?: string;
+  path?: string;
+  buffer?: Buffer;
+}
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -67,13 +80,11 @@ export class BackupController {
   async uploadBackupForRestore(
     @UploadedFile(
       new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: MAX_BACKUP_SIZE }),
-        ],
+        validators: [new MaxFileSizeValidator({ maxSize: MAX_BACKUP_SIZE })],
         fileIsRequired: true,
       }),
     )
-    file: Express.Multer.File,
+    file: File,
   ) {
     if (!file) {
       throw new BadRequestException('No backup file provided');
@@ -86,7 +97,8 @@ export class BackupController {
     }
 
     // Verify the backup integrity
-    const verified = await this.backupService.verifyBackupFile(file.path);
+    const filePath = file.path || file.filename || '';
+    const verified = await this.backupService.verifyBackupFile(filePath);
 
     return {
       message: 'Backup file uploaded and verified',
@@ -123,7 +135,7 @@ export class BackupController {
   /**
    * Check if the uploaded file is a valid backup
    */
-  private isValidBackupFile(file: Express.Multer.File): boolean {
+  private isValidBackupFile(file: File): boolean {
     // Check file extension
     const validExtensions = ['.enc', '.dump', '.sql', '.backup'];
     const fileName = file.originalname.toLowerCase();

@@ -67,8 +67,16 @@ export class AnalyticsService {
 
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    const previousMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
+    const previousYearStart = new Date(
+      now.getFullYear() - 1,
+      now.getMonth(),
+      1,
+    );
 
     const transactions = await this.transactionRepository.find({
       where: { userId },
@@ -102,7 +110,9 @@ export class AnalyticsService {
 
     const principalBalance = Math.max(totalDeposits - totalWithdrawals, 0);
     const savingsRate =
-      totalDeposits > 0 ? Number(((totalSavings / totalDeposits) * 100).toFixed(2)) : 0;
+      totalDeposits > 0
+        ? Number(((totalSavings / totalDeposits) * 100).toFixed(2))
+        : 0;
     const growthPercentage =
       principalBalance > 0
         ? Number(((totalInterestEarned / principalBalance) * 100).toFixed(2))
@@ -111,7 +121,10 @@ export class AnalyticsService {
     const allocationMap = new Map<string, number>();
     for (const sub of activeSubscriptions) {
       const key = sub.product?.name || 'Unknown Product';
-      allocationMap.set(key, (allocationMap.get(key) ?? 0) + Number(sub.amount));
+      allocationMap.set(
+        key,
+        (allocationMap.get(key) ?? 0) + Number(sub.amount),
+      );
     }
 
     const productAllocation = [...allocationMap.entries()].map(
@@ -125,7 +138,11 @@ export class AnalyticsService {
       }),
     );
 
-    const currentMonthTotal = this.sumForPeriod(transactions, currentMonthStart, now);
+    const currentMonthTotal = this.sumForPeriod(
+      transactions,
+      currentMonthStart,
+      now,
+    );
     const previousMonthTotal = this.sumForPeriod(
       transactions,
       previousMonthStart,
@@ -156,7 +173,9 @@ export class AnalyticsService {
       )
       .reduce((sum, tx) => sum + Number(tx.amount), 0);
     const avgMonthlyInterest = recentInterest / 3;
-    const projected12MonthsEarnings = Number((avgMonthlyInterest * 12).toFixed(2));
+    const projected12MonthsEarnings = Number(
+      (avgMonthlyInterest * 12).toFixed(2),
+    );
 
     const summary = {
       totalSavings,
@@ -181,7 +200,11 @@ export class AnalyticsService {
     return summary;
   }
 
-  async getTransactionSummary(userId: string, startDate?: string, endDate?: string) {
+  async getTransactionSummary(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
     const now = new Date();
     const start = startDate
       ? new Date(startDate)
@@ -193,7 +216,9 @@ export class AnalyticsService {
       order: { createdAt: 'ASC' },
     });
 
-    const inRange = txs.filter((tx) => tx.createdAt >= start && tx.createdAt <= end);
+    const inRange = txs.filter(
+      (tx) => tx.createdAt >= start && tx.createdAt <= end,
+    );
     const byType = {
       deposit: this.sumByType(inRange, LedgerTransactionType.DEPOSIT),
       withdrawal: this.sumByType(inRange, LedgerTransactionType.WITHDRAW),
@@ -202,12 +227,16 @@ export class AnalyticsService {
 
     const totalVolume = inRange.reduce((sum, tx) => sum + Number(tx.amount), 0);
     const averageTransactionSize =
-      inRange.length > 0 ? Number((totalVolume / inRange.length).toFixed(2)) : 0;
+      inRange.length > 0
+        ? Number((totalVolume / inRange.length).toFixed(2))
+        : 0;
     const dayCount = Math.max(
       Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)),
       1,
     );
-    const averageFrequencyPerDay = Number((inRange.length / dayCount).toFixed(2));
+    const averageFrequencyPerDay = Number(
+      (inRange.length / dayCount).toFixed(2),
+    );
 
     const peakByHour = this.findPeakBucket(inRange, (tx) =>
       String(tx.createdAt.getHours()),
@@ -223,7 +252,10 @@ export class AnalyticsService {
     const previousTxs = txs.filter(
       (tx) => tx.createdAt >= previousStart && tx.createdAt <= previousEnd,
     );
-    const previousTotal = previousTxs.reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const previousTotal = previousTxs.reduce(
+      (sum, tx) => sum + Number(tx.amount),
+      0,
+    );
 
     return {
       range: { startDate: start.toISOString(), endDate: end.toISOString() },
@@ -237,7 +269,11 @@ export class AnalyticsService {
     };
   }
 
-  async getSavingsPerformance(userId: string, startDate?: string, endDate?: string) {
+  async getSavingsPerformance(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
     const now = new Date();
     const start = startDate
       ? new Date(startDate)
@@ -261,9 +297,13 @@ export class AnalyticsService {
       const amount = Number(sub.amount);
       const apy = Number(sub.product?.interestRate ?? 0);
       const projectedReturn = Number(((amount * apy) / 100).toFixed(2));
-      const actualReturn = Number(Number(sub.totalInterestEarned ?? 0).toFixed(2));
+      const actualReturn = Number(
+        Number(sub.totalInterestEarned ?? 0).toFixed(2),
+      );
       const volatilityPenalty = this.riskPenaltyFor(sub.product?.riskLevel);
-      const riskAdjustedReturn = Number((actualReturn - volatilityPenalty).toFixed(2));
+      const riskAdjustedReturn = Number(
+        (actualReturn - volatilityPenalty).toFixed(2),
+      );
 
       return {
         productId: sub.productId,
@@ -276,13 +316,17 @@ export class AnalyticsService {
       };
     });
 
-    const sorted = [...products].sort((a, b) => b.actualReturn - a.actualReturn);
+    const sorted = [...products].sort(
+      (a, b) => b.actualReturn - a.actualReturn,
+    );
     return {
       range: { startDate: start.toISOString(), endDate: end.toISOString() },
       benchmarkApy: Number(benchmarkApy.toFixed(2)),
       totals: {
         projected: Number(
-          products.reduce((sum, item) => sum + item.projectedReturn, 0).toFixed(2),
+          products
+            .reduce((sum, item) => sum + item.projectedReturn, 0)
+            .toFixed(2),
         ),
         actual: Number(
           products.reduce((sum, item) => sum + item.actualReturn, 0).toFixed(2),
@@ -323,7 +367,10 @@ export class AnalyticsService {
         this.subscriptionRepository
           ? this.subscriptionRepository
               .createQueryBuilder('sub')
-              .select('COALESCE(SUM(sub.totalInterestEarned), 0)', 'totalInterest')
+              .select(
+                'COALESCE(SUM(sub.totalInterestEarned), 0)',
+                'totalInterest',
+              )
               .getRawOne<{ totalInterest: string }>()
           : Promise.resolve({ totalInterest: '0' }),
       ]);

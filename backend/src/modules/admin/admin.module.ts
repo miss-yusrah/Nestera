@@ -79,6 +79,10 @@ import { Dispute, DisputeTimeline } from '../disputes/entities/dispute.entity';
     AdminTransactionsService,
     AdminWithdrawalService,
   ],
-  exports: [AdminDisputesService, AdminAuditLogsService, AdminAuditLogsArchivalService],
+  exports: [
+    AdminDisputesService,
+    AdminAuditLogsService,
+    AdminAuditLogsArchivalService,
+  ],
 })
 export class AdminModule {}

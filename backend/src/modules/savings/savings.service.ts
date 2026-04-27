@@ -606,7 +606,8 @@ export class SavingsService {
     // Group subscriptions by vault contract ID for batching
     const subscriptionsByVault = new Map<string | null, typeof subscriptions>();
     for (const sub of subscriptions) {
-      const vaultId = this.resolveVaultContractId(sub) ?? defaultVaultContractId;
+      const vaultId =
+        this.resolveVaultContractId(sub) ?? defaultVaultContractId;
       if (!subscriptionsByVault.has(vaultId)) {
         subscriptionsByVault.set(vaultId, []);
       }
@@ -614,10 +615,7 @@ export class SavingsService {
     }
 
     // Batch RPC calls per vault contract ID
-    const balancesByContractAndUser = new Map<
-      string,
-      Map<string, number>
-    >();
+    const balancesByContractAndUser = new Map<string, Map<string, number>>();
 
     await Promise.all(
       Array.from(subscriptionsByVault.entries()).map(
@@ -676,9 +674,7 @@ export class SavingsService {
       }
 
       const liveBalanceStroops =
-        balancesByContractAndUser
-          .get(vaultContractId)
-          ?.get(userPublicKey) ?? 0;
+        balancesByContractAndUser.get(vaultContractId)?.get(userPublicKey) ?? 0;
 
       return this.mapSubscriptionWithLiveBalance(
         subscription,
@@ -1527,7 +1523,7 @@ export class SavingsService {
       );
 
     const earnings = projectedBalance - amount;
-    
+
     // Applying a 1% protocol fee impact as assumed in AdminAnalyticsService
     const netEarnings = earnings * 0.99;
 

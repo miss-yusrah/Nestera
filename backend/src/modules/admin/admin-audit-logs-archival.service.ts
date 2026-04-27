@@ -24,15 +24,13 @@ export interface ArchivalConfig {
   compressionEnabled: boolean;
   coldStorageEnabled: boolean;
   s3Bucket?: string;
-  localArchivePath?: string;
+  localArchivePath: string;
   batchSize: number;
 }
 
 @Injectable()
 export class AdminAuditLogsArchivalService {
-  private readonly logger = new Logger(
-    AdminAuditLogsArchivalService.name,
-  );
+  private readonly logger = new Logger(AdminAuditLogsArchivalService.name);
   private readonly config: ArchivalConfig;
   private readonly s3?: S3Client;
 
@@ -46,11 +44,9 @@ export class AdminAuditLogsArchivalService {
       retentionDays:
         this.configService.get<number>('audit.retentionDays') || 90,
       compressionEnabled:
-        this.configService.get<boolean>('audit.compression.enabled') ??
-        true,
+        this.configService.get<boolean>('audit.compression.enabled') ?? true,
       coldStorageEnabled:
-        this.configService.get<boolean>('audit.coldStorage.enabled') ??
-        true,
+        this.configService.get<boolean>('audit.coldStorage.enabled') ?? true,
       s3Bucket: this.configService.get<string>('audit.coldStorage.s3Bucket'),
       localArchivePath:
         this.configService.get<string>('audit.archivePath') ||
@@ -91,9 +87,7 @@ export class AdminAuditLogsArchivalService {
 
       const count = await this.archiveLogsBefore(cutoffDate);
 
-      this.logger.log(
-        `Archival completed. Archived ${count} audit logs.`,
-      );
+      this.logger.log(`Archival completed. Archived ${count} audit logs.`);
 
       this.eventEmitter?.emit('audit.logs.archived', {
         count,
@@ -133,7 +127,10 @@ export class AdminAuditLogsArchivalService {
       const archiveFileName = `audit-logs-${Date.now()}.jsonl`;
 
       // Write logs to temp file
-      const tempPath = path.join(this.config.localArchivePath, `${archiveFileName}.tmp`);
+      const tempPath = path.join(
+        this.config.localArchivePath,
+        `${archiveFileName}.tmp`,
+      );
       await this.writeLogsToFile(logs, tempPath);
 
       // Compress if enabled
@@ -166,7 +163,10 @@ export class AdminAuditLogsArchivalService {
   /**
    * Write logs to JSONL format (one JSON object per line)
    */
-  private async writeLogsToFile(logs: AuditLog[], filePath: string): Promise<void> {
+  private async writeLogsToFile(
+    logs: AuditLog[],
+    filePath: string,
+  ): Promise<void> {
     const writeStream = createWriteStream(filePath, { encoding: 'utf-8' });
 
     return new Promise((resolve, reject) => {
@@ -222,10 +222,7 @@ export class AdminAuditLogsArchivalService {
   /**
    * Get audit log count for a date range
    */
-  async getLogsCountInRange(
-    fromDate: Date,
-    toDate: Date,
-  ): Promise<number> {
+  async getLogsCountInRange(fromDate: Date, toDate: Date): Promise<number> {
     return this.auditLogRepository.count({
       where: {
         timestamp: LessThan(toDate),

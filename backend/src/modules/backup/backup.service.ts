@@ -125,7 +125,7 @@ export class BackupService {
 
       const sizeBytes = fs.statSync(encFile).size;
       const checksum = await this.calculateChecksum(encFile);
-      
+
       await this.uploadToS3(encFile, record.s3Key);
       fs.unlinkSync(encFile);
 
@@ -356,7 +356,9 @@ export class BackupService {
 
       return true;
     } catch (error) {
-      this.logger.error(`Backup file verification failed: ${(error as Error).message}`);
+      this.logger.error(
+        `Backup file verification failed: ${(error as Error).message}`,
+      );
       return false;
     }
   }
@@ -399,7 +401,11 @@ export class BackupService {
     fs.readSync(fd, iv, 0, 16, 0);
     fs.closeSync(fd);
 
-    const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      this.encryptionKey,
+      iv,
+    );
 
     input.on('data', (chunk) => {
       if (input.bytesRead === 16) {

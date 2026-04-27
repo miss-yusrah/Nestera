@@ -1,6 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+// Define File type for multer uploads
+interface File {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination?: string;
+  filename?: string;
+  path?: string;
+  buffer?: Buffer;
+}
+
 /**
  * Configuration for file uploads across the application
  * Handles multer setup, size limits, and virus scanning
@@ -21,8 +34,7 @@ export class FileUploadConfigService {
       this.configService.get<number>('upload.defaultMaxSize') ||
       10 * 1024 * 1024; // 10MB
     this.maxAvatarSize =
-      this.configService.get<number>('upload.maxAvatarSize') ||
-      5 * 1024 * 1024; // 5MB
+      this.configService.get<number>('upload.maxAvatarSize') || 5 * 1024 * 1024; // 5MB
     this.maxDocumentSize =
       this.configService.get<number>('upload.maxDocumentSize') ||
       10 * 1024 * 1024; // 10MB
@@ -31,10 +43,7 @@ export class FileUploadConfigService {
       1024 * 1024 * 1024; // 1GB
     this.allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
     this.allowedDocumentTypes = ['application/pdf', 'image/jpeg'];
-    this.allowedBackupTypes = [
-      'application/octet-stream',
-      'application/gzip',
-    ];
+    this.allowedBackupTypes = ['application/octet-stream', 'application/gzip'];
     this.virusScanningEnabled =
       this.configService.get<boolean>('upload.virusScanningEnabled') ?? false;
   }
@@ -106,7 +115,7 @@ export class FileUploadConfigService {
    * Validate file before processing
    */
   async validateFile(
-    file: Express.Multer.File,
+    file: File,
     fileType: 'avatar' | 'document' | 'backup' | 'default',
   ): Promise<{ valid: boolean; error?: string }> {
     // Check file size
@@ -152,7 +161,7 @@ export class FileUploadConfigService {
    * Scan file for viruses using ClamAV or similar service
    * Placeholder implementation - integrate with actual virus scanner
    */
-  private async scanForViruses(_file: Express.Multer.File): Promise<boolean> {
+  private async scanForViruses(_file: File): Promise<boolean> {
     // TODO: Integrate with ClamAV or VirusTotal API
     // For now, always return true (file is clean)
     return true;
