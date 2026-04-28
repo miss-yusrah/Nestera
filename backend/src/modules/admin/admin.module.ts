@@ -5,6 +5,7 @@ import { UserModule } from '../user/user.module';
 import { SavingsModule } from '../savings/savings.module';
 import { MailModule } from '../mail/mail.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
+import { GovernanceModule } from '../governance/governance.module';
 import { CircuitBreakerModule } from '../../common/circuit-breaker/circuit-breaker.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AdminController } from './admin.controller';
@@ -37,6 +38,7 @@ import { WithdrawalRequest } from '../savings/entities/withdrawal-request.entity
 import { AuditLog } from '../../common/entities/audit-log.entity';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { Dispute, DisputeTimeline } from '../disputes/entities/dispute.entity';
+import { Notification } from '../notifications/entities/notification.entity';
 
 @Module({
   imports: [
@@ -58,6 +60,7 @@ import { Dispute, DisputeTimeline } from '../disputes/entities/dispute.entity';
     SavingsModule,
     MailModule,
     BlockchainModule,
+    GovernanceModule,
     CircuitBreakerModule,
     NotificationsModule,
     EventEmitterModule,

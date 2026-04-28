@@ -17,6 +17,7 @@ import { Vote, VoteDirection } from './entities/vote.entity';
 import { Delegation } from './entities/delegation.entity';
 import { TransactionsService } from '../transactions/transactions.service';
 import { LedgerTransaction } from '../blockchain/entities/transaction.entity';
+import { User } from '../user/entities/user.entity';
 
 describe('GovernanceService', () => {
   let service: GovernanceService;
@@ -42,6 +43,9 @@ describe('GovernanceService', () => {
     findAndCount: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
+  };
+  let userRepo: {
+    find: jest.Mock;
   };
   let transactionsService: any;
   let transactionRepo: { createQueryBuilder: jest.Mock };
@@ -78,6 +82,9 @@ describe('GovernanceService', () => {
       create: jest.fn(),
       save: jest.fn(),
     };
+    userRepo = {
+      find: jest.fn().mockResolvedValue([]),
+    };
     transactionsService = {};
     transactionRepo = { createQueryBuilder: jest.fn() };
     delegationRepo = {
@@ -107,6 +114,10 @@ describe('GovernanceService', () => {
         {
           provide: getRepositoryToken(Delegation),
           useValue: delegationRepo,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: userRepo,
         },
       ],
     }).compile();
@@ -176,6 +187,7 @@ describe('GovernanceService', () => {
         publicKey: 'GUSERPUBLICKEY123',
       });
       savingsService.getUserVaultBalance.mockResolvedValue(2_000_000_000);
+      userRepo.find.mockResolvedValue([{ id: 'user-1' }]);
       proposalRepo.findOne.mockResolvedValue({ onChainId: 7 });
       proposalRepo.create.mockImplementation((input) => ({
         id: 'proposal-1',
@@ -230,7 +242,7 @@ describe('GovernanceService', () => {
           type: ProposalType.RATE_CHANGE,
         }),
       );
-      expect(result.requiredQuorum).toBe('5000.00000000');
+      expect(result.requiredQuorum).toBe('100.00000000');
       expect(result.proposalThreshold).toBe('100.00000000');
       expect(result.canEdit).toBe(true);
     });
@@ -433,6 +445,228 @@ describe('GovernanceService', () => {
       const result = await service.delegateVotingPower('user-1', 'DELEGATE_PK');
       expect(result.transactionHash).toBeDefined();
       expect(result.transactionHash).toMatch(/^0x/);
+    });
+  });
+
+  describe('delegate (loop detection)', () => {
+    it('rejects delegation to self', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GUSERPUBLICKEY123',
+      });
+
+      await expect(
+        service.delegate('user-1', 'GUSERPUBLICKEY123'),
+      ).rejects.toThrow('Cannot delegate to yourself');
+    });
+
+    it('rejects direct loop (A→B→A)', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GA',
+      });
+      // Simulate that GA already delegates to GB
+      delegationRepo.findOne.mockImplementation(({ where }) => {
+        if (where.delegatorAddress === 'GA') {
+          return Promise.resolve({
+            delegatorAddress: 'GA',
+            delegateAddress: 'GB',
+          });
+        }
+        if (where.delegatorAddress === 'GB' && where.delegateAddress === 'GA') {
+          return Promise.resolve({
+            delegatorAddress: 'GB',
+            delegateAddress: 'GA',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      // Try to delegate from GB to GA (would create loop)
+      userService.findById.mockResolvedValue({
+        id: 'user-2',
+        publicKey: 'GB',
+      });
+      await expect(service.delegate('user-2', 'GA')).rejects.toThrow(
+        'Delegation loop detected in chain',
+      );
+    });
+
+    it('rejects long chain loop (A→B→C→A)', async () => {
+      // User A delegates to B
+      userService.findById.mockResolvedValue({
+        id: 'user-a',
+        publicKey: 'GA',
+      });
+      delegationRepo.findOne.mockImplementation(({ where }) => {
+        if (where.delegatorAddress === 'GA') {
+          return Promise.resolve({
+            delegatorAddress: 'GA',
+            delegateAddress: 'GB',
+          });
+        }
+        if (where.delegatorAddress === 'GB') {
+          return Promise.resolve({
+            delegatorAddress: 'GB',
+            delegateAddress: 'GC',
+          });
+        }
+        if (where.delegatorAddress === 'GC') {
+          return Promise.resolve({
+            delegatorAddress: 'GC',
+            delegateAddress: 'GA',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      // Try to delegate from GC to GA (would create A→B→C→A loop)
+      userService.findById.mockResolvedValue({
+        id: 'user-c',
+        publicKey: 'GC',
+      });
+      await expect(service.delegate('user-c', 'GA')).rejects.toThrow(
+        'Delegation loop detected in chain',
+      );
+    });
+
+    it('rejects delegation exceeding max chain depth', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GF',
+      });
+      // Simulate a chain of 5 delegations (A→B→C→D→E→F)
+      delegationRepo.findOne.mockImplementation(({ where }) => {
+        const chains: Record<string, string> = {
+          GA: 'GB',
+          GB: 'GC',
+          GC: 'GD',
+          GD: 'GE',
+          GE: 'GF',
+        };
+        const delegate = chains[where.delegatorAddress as string];
+        if (delegate) {
+          return Promise.resolve({
+            delegatorAddress: where.delegatorAddress,
+            delegateAddress: delegate,
+          });
+        }
+        return Promise.resolve(null);
+      });
+      delegationRepo.find.mockImplementation(({ where }) => {
+        const incoming: Record<string, string[]> = {
+          GB: ['GA'],
+          GC: ['GB'],
+          GD: ['GC'],
+          GE: ['GD'],
+          GF: ['GE'],
+        };
+        return Promise.resolve(
+          (incoming[where.delegateAddress as string] ?? []).map(
+            (delegatorAddress) => ({
+              delegatorAddress,
+              delegateAddress: where.delegateAddress,
+            }),
+          ),
+        );
+      });
+
+      // Try to delegate from GF to GG (would be 6th level)
+      await expect(service.delegate('user-f', 'GG')).rejects.toThrow(
+        'Delegation chain would exceed maximum depth of 5',
+      );
+    });
+
+    it('allows valid delegation with no loop and within depth limit', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GA',
+      });
+      delegationRepo.findOne.mockResolvedValue(null);
+      delegationRepo.upsert.mockResolvedValue(undefined);
+      eventEmitter.emit.mockClear();
+
+      const result = await service.delegate('user-1', 'GB');
+
+      expect(result.transactionHash).toBeDefined();
+      expect(delegationRepo.upsert).toHaveBeenCalledWith(
+        { delegatorAddress: 'GA', delegateAddress: 'GB' },
+        ['delegatorAddress'],
+      );
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'governance.delegation.changed',
+        { delegator: 'GA', delegate: 'GB' },
+      );
+    });
+  });
+
+  describe('getDelegationChain', () => {
+    it('returns empty chain for user with no delegation', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GA',
+      });
+      delegationRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.getDelegationChain('user-1');
+
+      expect(result).toEqual({ chain: [], depth: 0, hasLoop: false });
+    });
+
+    it('returns delegation chain with depth and loop detection', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GA',
+      });
+      delegationRepo.findOne.mockImplementation(({ where }) => {
+        if (where.delegatorAddress === 'GA') {
+          return Promise.resolve({
+            delegatorAddress: 'GA',
+            delegateAddress: 'GB',
+          });
+        }
+        if (where.delegatorAddress === 'GB') {
+          return Promise.resolve({
+            delegatorAddress: 'GB',
+            delegateAddress: 'GC',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      const result = await service.getDelegationChain('user-1');
+
+      expect(result.chain).toEqual(['GB', 'GC']);
+      expect(result.depth).toBe(2);
+      expect(result.hasLoop).toBe(false);
+    });
+
+    it('detects loop in delegation chain', async () => {
+      userService.findById.mockResolvedValue({
+        id: 'user-1',
+        publicKey: 'GA',
+      });
+      delegationRepo.findOne.mockImplementation(({ where }) => {
+        if (where.delegatorAddress === 'GA') {
+          return Promise.resolve({
+            delegatorAddress: 'GA',
+            delegateAddress: 'GB',
+          });
+        }
+        if (where.delegatorAddress === 'GB') {
+          return Promise.resolve({
+            delegatorAddress: 'GB',
+            delegateAddress: 'GA',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      const result = await service.getDelegationChain('user-1');
+
+      expect(result.chain).toEqual(['GB', 'GA']);
+      expect(result.depth).toBe(2);
+      expect(result.hasLoop).toBe(true);
     });
   });
 });

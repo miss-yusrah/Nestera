@@ -22,10 +22,18 @@ export class CreateSessionsTable1799200000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX "IDX_sessions_userId" ON "sessions"("userId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_sessions_jti" ON "sessions"("jti")`);
-    await queryRunner.query(`CREATE INDEX "IDX_sessions_isRevoked" ON "sessions"("isRevoked")`);
-    await queryRunner.query(`CREATE INDEX "IDX_sessions_expiresAt" ON "sessions"("expiresAt")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_sessions_userId" ON "sessions"("userId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_sessions_jti" ON "sessions"("jti")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_sessions_isRevoked" ON "sessions"("isRevoked")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_sessions_expiresAt" ON "sessions"("expiresAt")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

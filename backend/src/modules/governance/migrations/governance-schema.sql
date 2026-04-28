@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS governance_proposals (
   proposer VARCHAR(255),
   start_block BIGINT,
   end_block BIGINT,
+  timelock_ends_at TIMESTAMP WITH TIME ZONE,
+  executed_at TIMESTAMP WITH TIME ZONE,
+  cancelled_at TIMESTAMP WITH TIME ZONE,
+  cancelled_by UUID,
+  cancellation_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

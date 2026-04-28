@@ -30,7 +30,10 @@ export class RegisterDto {
   @IsString()
   referralCode?: string;
 
-  @ApiPropertyOptional({ example: 'device-123', description: 'Device identifier' })
+  @ApiPropertyOptional({
+    example: 'device-123',
+    description: 'Device identifier',
+  })
   @IsOptional()
   @IsString()
   deviceId?: string;
@@ -50,7 +53,10 @@ export class LoginDto {
   @IsString()
   password: string;
 
-  @ApiPropertyOptional({ example: 'device-123', description: 'Device identifier' })
+  @ApiPropertyOptional({
+    example: 'device-123',
+    description: 'Device identifier',
+  })
   @IsOptional()
   @IsString()
   deviceId?: string;
@@ -86,7 +92,10 @@ export class RefreshTokenDto {
   @IsString()
   token: string;
 
-  @ApiPropertyOptional({ example: 'device-123', description: 'Device identifier' })
+  @ApiPropertyOptional({
+    example: 'device-123',
+    description: 'Device identifier',
+  })
   @IsOptional()
   @IsString()
   deviceId?: string;

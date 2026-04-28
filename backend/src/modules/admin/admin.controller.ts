@@ -7,6 +7,8 @@ import {
   Query,
   UseGuards,
   BadRequestException,
+  Post,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +17,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { UserService } from '../user/user.service';
+import { GovernanceService } from '../governance/governance.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -30,6 +33,7 @@ import { ApproveKycDto, RejectKycDto } from '../user/dto/update-user.dto';
 export class AdminController {
   constructor(
     private readonly userService: UserService,
+    private readonly governanceService: GovernanceService,
     private readonly rateLimitMonitor: RateLimitMonitorService,
   ) {}
 
@@ -91,16 +95,28 @@ export class AdminController {
     );
   }
 
-  @Get('rate-limits/violations/:userId')
-  @ApiOperation({ summary: 'Get rate limit violations for a specific user' })
-  @ApiResponse({ status: 200, description: 'User rate limit violations' })
-  getUserViolations(
-    @Param('userId') userId: string,
-    @Query('limit') limit?: string,
+  @Post('governance/proposals/:id/cancel')
+  @ApiOperation({ summary: 'Admin emergency cancellation of a proposal' })
+  @ApiResponse({ status: 200, description: 'Proposal cancelled successfully' })
+  async cancelProposal(
+    @Param('id') proposalId: string,
+    @Body() body: { reason: string },
+    @Req() req: any,
   ) {
-    return this.rateLimitMonitor.getViolationsByUser(
-      userId,
-      limit ? parseInt(limit, 10) : 50,
+    if (!proposalId) {
+      throw new BadRequestException('Proposal ID is required');
+    }
+    if (!body.reason || body.reason.trim().length === 0) {
+      throw new BadRequestException('Cancellation reason is required');
+    }
+    const adminId = req.user?.id;
+    if (!adminId) {
+      throw new BadRequestException('Admin authentication required');
+    }
+    return this.governanceService.adminCancelProposal(
+      proposalId,
+      adminId,
+      body.reason.trim(),
     );
   }
 }

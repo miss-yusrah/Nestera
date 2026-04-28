@@ -18,6 +18,7 @@ import { StellarService } from '../blockchain/stellar.service';
 import { SavingsService } from '../blockchain/savings.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { LedgerTransaction } from '../blockchain/entities/transaction.entity';
+import { User } from '../user/entities/user.entity';
 
 const mockRepo = () => ({
   findOneBy: jest.fn(),
@@ -37,6 +38,7 @@ describe('GovernanceService – lifecycle & delegation', () => {
   let proposalRepo: ReturnType<typeof mockRepo>;
   let delegationRepo: ReturnType<typeof mockRepo>;
   let voteRepo: ReturnType<typeof mockRepo>;
+  let userRepo: ReturnType<typeof mockRepo>;
   let userService: { findById: jest.Mock };
   let stellarService: {
     getDelegationForUser: jest.Mock;
@@ -66,6 +68,7 @@ describe('GovernanceService – lifecycle & delegation', () => {
     proposalRepo = mockRepo();
     delegationRepo = mockRepo();
     voteRepo = mockRepo();
+    userRepo = mockRepo();
     userService = { findById: jest.fn() };
     stellarService = {
       getDelegationForUser: jest.fn(),
@@ -97,6 +100,10 @@ describe('GovernanceService – lifecycle & delegation', () => {
         {
           provide: getRepositoryToken(LedgerTransaction),
           useValue: mockRepo(),
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: userRepo,
         },
       ],
     }).compile();

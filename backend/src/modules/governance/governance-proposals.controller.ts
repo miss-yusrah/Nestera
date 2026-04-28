@@ -19,14 +19,18 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { EditProposalDto } from './dto/edit-proposal.dto';
 import { CastVoteDto } from './dto/cast-vote.dto';
+import { AdminCancelProposalDto } from './dto/admin-cancel-proposal.dto';
 import { ProposalListItemDto } from './dto/proposal-list-item.dto';
 import { ProposalResponseDto } from './dto/proposal-response.dto';
 import { ProposalVotesResponseDto } from './dto/proposal-votes-response.dto';
 import { ProposalStatus } from './entities/governance-proposal.entity';
+import { Role } from '../../common/enums/role.enum';
 import { GovernanceService } from './governance.service';
 
 @ApiTags('governance')
@@ -260,5 +264,32 @@ export class GovernanceProposalsController {
     @CurrentUser() user: { id: string },
   ): Promise<ProposalResponseDto> {
     return this.governanceService.cancelProposal(id, user.id);
+  }
+
+  // ── Admin endpoints ───────────────────────────────────────────────────────
+
+  @Post(':id/admin-cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Emergency cancellation by admin',
+    description:
+      'Allows an admin to cancel a malicious or erroneous proposal. Requires a valid reason.',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 201,
+    description: 'Proposal cancelled by admin',
+    type: ProposalResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Not an admin' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  adminCancelProposal(
+    @Param('id') id: string,
+    @Body() dto: AdminCancelProposalDto,
+    @CurrentUser() user: { id: string },
+  ): Promise<ProposalResponseDto> {
+    return this.governanceService.adminCancelProposal(id, user.id, dto.reason);
   }
 }

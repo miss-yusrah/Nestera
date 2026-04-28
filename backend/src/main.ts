@@ -3,6 +3,7 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import * as helmet from 'helmet';
+import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -31,6 +32,28 @@ async function bootstrap() {
   // Apply security headers middleware
   app.use(helmet.default());
   app.use(createSecurityHeadersMiddleware());
+
+  // Apply compression middleware with optimized settings
+  app.use(
+    compression({
+      threshold: 1024, // 1KB threshold - only compress responses larger than 1KB
+      level: 6, // Balanced compression level (1-9, where 9 is best compression but slowest)
+      filter: (req, res) => {
+        // Don't compress responses with Cache-Control: no-transform
+        if (req.headers['cache-control']?.includes('no-transform')) {
+          return false;
+        }
+        // Use default compression filter
+        return compression.filter(req, res);
+      },
+    }),
+  );
+
+  // Add Vary header for proper caching with compression
+  app.use((req, res, next) => {
+    res.set('Vary', 'Accept-Encoding');
+    next();
+  });
 
   // Register header-based version negotiation + deprecation warnings
   const versioningMiddleware = new VersioningMiddleware();

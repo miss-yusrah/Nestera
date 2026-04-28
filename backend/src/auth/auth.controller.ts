@@ -311,7 +311,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Logout and revoke current session and refresh token' })
+  @ApiOperation({
+    summary: 'Logout and revoke current session and refresh token',
+  })
   @ApiResponse({ status: 200, description: 'Logged out successfully' })
   async logout(
     @Request() req: { user: { id: string; jti?: string } },
@@ -336,7 +338,9 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Logged out from all devices' })
   async logoutAll(@Request() req: { user: { id: string } }) {
     const tokenCount = await this.authService.revokeAllUserTokens(req.user.id);
-    const sessionCount = await this.authService.revokeAllUserSessions(req.user.id);
+    const sessionCount = await this.authService.revokeAllUserSessions(
+      req.user.id,
+    );
     return {
       message: `Logged out from ${tokenCount} token(s) and ${sessionCount} session(s)`,
     };

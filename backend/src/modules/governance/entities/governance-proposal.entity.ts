@@ -123,6 +123,18 @@ export class GovernanceProposal {
   @Column({ type: 'timestamptz', nullable: true })
   executedAt: Date | null;
 
+  /** Set when proposal is cancelled by admin */
+  @Column({ type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
+  /** Admin who cancelled the proposal */
+  @Column({ type: 'uuid', nullable: true })
+  cancelledBy: string | null;
+
+  /** Reason for cancellation */
+  @Column({ type: 'text', nullable: true })
+  cancellationReason: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
