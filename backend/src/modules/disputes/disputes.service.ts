@@ -11,13 +11,20 @@ import {
   DisputeStatus,
   DisputeTimeline,
 } from './entities/dispute.entity';
+import {
+  DisputeEvidence,
+  EvidenceProcessingStatus,
+} from './entities/dispute-evidence.entity';
 import { MedicalClaim } from '../claims/entities/medical-claim.entity';
 import {
   CreateDisputeDto,
   UpdateDisputeDto,
   AddDisputeMessageDto,
 } from './dto/dispute.dto';
+import { UploadEvidenceDto } from './dto/upload-evidence.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
+import { JobQueueService } from '../job-queue/job-queue.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 
 const ALLOWED_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {
@@ -69,7 +76,11 @@ export class DisputesService {
     private readonly claimRepository: Repository<MedicalClaim>,
     @InjectRepository(DisputeTimeline)
     private readonly timelineRepository: Repository<DisputeTimeline>,
+    @InjectRepository(DisputeEvidence)
+    private readonly evidenceRepository: Repository<DisputeEvidence>,
     private readonly notificationsService: NotificationsService,
+    private readonly storageService: StorageService,
+    private readonly jobQueueService: JobQueueService,
   ) {}
 
   async createDispute(createDisputeDto: CreateDisputeDto): Promise<Dispute> {
@@ -308,5 +319,92 @@ export class DisputesService {
     );
 
     return updatedDispute;
+  }
+
+  /**
+   * Upload evidence file for a dispute and enqueue a background processing job.
+   * Returns the saved DisputeEvidence record (status: PENDING) plus the job ID.
+   */
+  async uploadEvidence(
+    disputeId: string,
+    file: Express.Multer.File,
+    dto: UploadEvidenceDto,
+  ): Promise<DisputeEvidence> {
+    await this.findOne(disputeId);
+
+    const storagePath = await this.storageService.saveFile(file);
+
+    const evidence = this.evidenceRepository.create({
+      disputeId,
+      originalFilename: file.originalname,
+      storagePath,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      uploadedBy: dto.uploadedBy,
+      processingStatus: EvidenceProcessingStatus.PENDING,
+      jobId: null,
+    });
+    const savedEvidence = await this.evidenceRepository.save(evidence);
+
+    const job = await this.jobQueueService.addEvidenceProcessingJob({
+      evidenceId: savedEvidence.id,
+      disputeId,
+      storagePath,
+      mimeType: file.mimetype,
+      originalFilename: file.originalname,
+      uploadedBy: dto.uploadedBy,
+    });
+
+    await this.evidenceRepository.update(savedEvidence.id, {
+      jobId: String(job.id),
+    });
+    savedEvidence.jobId = String(job.id);
+
+    await this.timelineRepository.save(
+      this.timelineRepository.create({
+        disputeId,
+        action: 'EVIDENCE_UPLOADED',
+        performedBy: dto.uploadedBy,
+        description: `Evidence file uploaded: ${file.originalname}`,
+        newState: {
+          evidenceId: savedEvidence.id,
+          jobId: savedEvidence.jobId,
+          processingStatus: EvidenceProcessingStatus.PENDING,
+        },
+      }),
+    );
+
+    return savedEvidence;
+  }
+
+  /**
+   * Get processing status for a specific evidence record.
+   */
+  async getEvidenceStatus(
+    disputeId: string,
+    evidenceId: string,
+  ): Promise<DisputeEvidence> {
+    const evidence = await this.evidenceRepository.findOne({
+      where: { id: evidenceId, disputeId },
+    });
+
+    if (!evidence) {
+      throw new NotFoundException(
+        `Evidence with ID ${evidenceId} not found for dispute ${disputeId}`,
+      );
+    }
+
+    return evidence;
+  }
+
+  /**
+   * List all evidence records for a dispute.
+   */
+  async listEvidence(disputeId: string): Promise<DisputeEvidence[]> {
+    await this.findOne(disputeId);
+    return this.evidenceRepository.find({
+      where: { disputeId },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

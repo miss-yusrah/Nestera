@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
   BLOCKCHAIN: 'blockchain',
   EMAIL: 'email',
   REPORTS: 'reports',
+  DISPUTE_EVIDENCE: 'dispute-evidence',
 } as const;
 
 export const JOB_NAMES = {
@@ -10,6 +11,7 @@ export const JOB_NAMES = {
   SEND_EMAIL: 'send-email',
   PROCESS_BLOCKCHAIN_EVENT: 'process-blockchain-event',
   GENERATE_REPORT: 'generate-report',
+  PROCESS_DISPUTE_EVIDENCE: 'process-dispute-evidence',
 } as const;
 
 export const DLQ_SUFFIX = '-dlq';
