@@ -25,7 +25,6 @@ import { UploadEvidenceDto } from './dto/upload-evidence.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../storage/storage.service';
 import { JobQueueService } from '../job-queue/job-queue.service';
-import { NotificationType } from '../notifications/entities/notification.entity';
 
 const ALLOWED_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {
   [DisputeStatus.OPEN]: [

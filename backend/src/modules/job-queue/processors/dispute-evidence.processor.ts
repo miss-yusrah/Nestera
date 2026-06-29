@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { QUEUE_NAMES, JOB_NAMES } from '../job-queue.constants';
+import { QUEUE_NAMES } from '../job-queue.constants';
 import { DisputeEvidence, EvidenceProcessingStatus } from '../../disputes/entities/dispute-evidence.entity';
 import { DisputeEvidenceJobData } from '../job-queue.service';
 

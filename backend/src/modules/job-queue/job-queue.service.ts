@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, JobsOptions } from 'bullmq';
-import { QUEUE_NAMES, JOB_NAMES, DLQ_SUFFIX } from './job-queue.constants';
+import { QUEUE_NAMES, JOB_NAMES } from './job-queue.constants';
 
 export interface NotificationJobData {
   userId: string;
